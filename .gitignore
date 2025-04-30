@@ -1,0 +1,10 @@
+## Folders
+node_modules/
+
+## File extensions
+
+## Specific files
+package-lock.json
+config.json
+
+# Commands
