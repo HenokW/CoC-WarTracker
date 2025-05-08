@@ -1,0 +1,198 @@
+const config = require("./config.json");
+const storage = require("node-persist");
+const axios = require("axios");
+
+const STORAGE_VAR = "clanData";
+const API_URL = "https://api.clashofclans.com/v1"
+
+const sheet = require("./sheets.js");
+const TEST = true;
+/**
+ * clanData: {
+ *  lastOpponent: clanTag,
+ *  warEndTime: Time in milliseconds
+ * }
+ * 
+ */
+module.exports.main = async function main() {
+    await storage.init(
+            {
+                stringify: JSON.stringify,
+                parse: JSON.parse,
+                encoding: "utf8",
+                ttl: false
+            });
+
+    const data = await storage.getItem(STORAGE_VAR);
+    //const currentTime = new Date().getTime(); //Current Time in milliseconds
+    
+    const cwlWarData = await api({ endpoint: "cwl" });
+
+    //Check to see if we're in CWL first, THEN check for normal war
+    if(cwlWarData != "404" && (cwlWarData.clans?.length || 0 ) > 1) {
+        //We ARE in CWL - do with that as you will
+
+        /**
+         * Go through the rounds in reverse order, whichever value doesn't have an array of tags filled with "#0"
+         * is our match (just make sure the war has ended)
+         */
+
+        let activeWarTag = await findWarTag(cwlWarData.rounds);
+        //console.log(activeWarTag); 
+
+        if(activeWarTag.found) {
+            if(!activeWarTag.result.clan.tag.includes(config.clanTag)) {
+                const tempClan = activeWarTag.result.clan;
+                activeWarTag.result.clan = activeWarTag.result.opponent;
+                activeWarTag.result.opponent = tempClan;
+
+                if(isClanLogged(warData))
+                    return console.log("Looks like we've already added this clan's information already... Ignoring.");
+                
+                console.log("------------------------------------------------");
+            }
+        }
+
+        //Add missing values so we can send the same cwl & clan war object
+        activeWarTag.result.attacksPerMember = 1; 
+        sheet.run(activeWarTag.result);
+
+    } else {
+        //We are NOT in CWL - do with that as you will
+        //===NOT DONE===NOT DONE===NOT DONE=== NOT DONE===//
+
+        const warData = await api({ endpoint: "clan" });
+        if(warData.state != "warEnded") return;
+
+        if(isClanLogged(warData))
+            return;
+
+        sheet.run(warData);
+
+    }
+
+    return;
+
+
+
+
+    //Garbage below -- Garbage below -- Garbage below -- Garbage below -- Garbage below -- 
+
+
+        //console.log(warData);
+        if(warData.state == "inWar") {
+            //If they're in war still, add their data to node-persist, and come back when war is over
+            //setNodeData(warData);
+
+            console.log("We are inWar!");
+
+            //===NOT DONE===NOT DONE===NOT DONE=== NOT DONE===//
+        } else if(warData.state == "warEnded") {
+            const nodeData = storage.getItem(STORAGE_VAR);
+            if(nodeData.lastOpponent == warData.opponent.tag) //We've already processed this clans data
+                return;
+            else {
+                sheet.run(warData);
+            }
+        } else {
+
+        }
+}
+
+function findWarTag(warTags) {
+    return new Promise(async (resolve) => {
+        for(let i = warTags.length - 1; i >= 0; i--) {
+            if(warTags[i].warTags[0] == "#0") continue;
+
+            for(let k = 0; k < warTags[i].warTags.length; k++) {
+                //console.log(`warTags[i]: ${warTags[i].warTags} || warTags[i][k]: ${warTags[i].warTags[k]}`);
+                //console.log(k);
+                let currentTag = await api({ endpoint: "warTags", warTag: (warTags[i].warTags[k]).slice( 1, (warTags[i].warTags[k]).length ) });
+                if(currentTag.state != "warEnded") break;
+
+                //console.log(`Clan Name: ${currentTag.clan.name} || Opponent Name: ${currentTag.opponent.name}`)
+                if(currentTag.clan.tag.includes(config.clanTag) || currentTag.opponent.tag.includes(config.clanTag))
+                    resolve({ result: currentTag, found: true });
+            }
+        }
+
+        resolve({ found: false });
+
+    }); //End of promise
+}
+
+module.exports.setNodeData = function(api) {
+    const formattedTime = UTCtoMS(api.endTime);
+    const obj = {
+        lastOpponent: "",
+        warEndTime: formattedTime
+    }
+    console.log(obj);
+    //storage.setItem(STORAGE_VAR, obj);
+}
+
+function isClanLogged(warData) {
+    const nodeData = storage.getItem(STORAGE_VAR);
+    if(!nodeData || warData.opponent.tag != nodeData.lastOpponent) 
+        return false;
+
+    return true;
+}
+
+function UTCtoMS(time) {
+    return time.slice( 0,  4) + "-" + time.slice(4, 6) + "-" + time.slice(6, 11) + ":" + time.slice(11, time.length)
+}
+
+async function api(options, failedAmount) {
+    return new Promise(async (resolve) => {
+        const request = axios.create({
+            headers: {
+                'Authorization': 'Bearer ' + config.cocApiToken
+            }
+        });
+
+        try {
+            switch(options.endpoint) {
+                case "clan":
+                    const apiClanData = await request.get(`${API_URL}/clans/%23${config.clanTag}/currentwar`);
+                    return resolve(apiClanData.data);
+
+                case "cwl":
+                    const apiCWLData = await request.get(`${API_URL}/clans/%23${config.clanTag}/currentwar/leaguegroup`);
+                    return resolve(apiCWLData.data);
+
+                case "warTags":
+                    const apiWarTagsData = await request.get(`${API_URL}/clanwarleagues/wars/%23${options.warTag}`);
+                    return resolve(apiWarTagsData.data);
+                    break;
+
+                default:
+                    throw new Error(`Unknown endpoint attempted while trying to make an API call: ${options.endpoint}`)
+            }
+        } catch(err) {
+            console.log(`================\n${err}`);
+            console.log(options);
+            console.log(`FailedAmount: ${failedAmount}`);
+            console.log("================")
+
+            //console.log(err.response.status);
+            if(err.response.status != "404") {
+                if(typeof failedAmount != "number")
+                    failedAmount = 0;
+
+                if(failedAmount < 3) {
+                    failedAmount++;
+
+                    return setTimeout(() => {
+                        console.log(`Failed. Attempt #${failedAmount}`);
+                        api(options, failedAmount);
+                    }, 10000);
+                } else {
+                    resolve(console.error(`============\nWe've run into an issue with the api!\n${err}\n============`));
+                }
+            } 
+
+            return resolve(`404`);
+        }
+    });
+}

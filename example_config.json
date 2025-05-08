@@ -1,0 +1,10 @@
+{
+    "clanTag": "COC_CLANTAG",
+    "mainSheetID": "GOOGLE_SHEETS_ID",
+    
+    "token": "DISCORD_API_TOKEN",
+    "cocApiToken": "COC_API_TOKEN",
+
+    "clientId": "DISCORD_APP_ID",
+    "guildId": "TEST_GUILD_ID"
+}

@@ -1,10 +1,15 @@
 ## Folders
 node_modules/
+commands/
 
 ## File extensions
 
 ## Specific files
 package-lock.json
+credentials.json
 config.json
+token.json
 
+deploy-commands.js
+oldSheets.js
 # Commands
