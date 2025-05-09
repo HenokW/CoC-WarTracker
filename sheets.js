@@ -187,8 +187,15 @@ async function mainSheet(auth, warData) {
          * with a [x], and potentially move them to the bottom of the array?
          */
 
-        for(let i = 0; i < returnedSheet.length; i++)
-            if(returnedSheet[i].length == warHistoryLength) {
+        for(let i = 0; i < returnedSheet.length; i++) {
+
+            let isLogged = false; //Solves the issue of people getting marked as "[x]" even if they were in war (they're new to the sheet, and we're filling the gaps based on length)
+            for(let k = 0; k < warMembers.length; k++) {
+                if(returnedSheet[i][0] == warMembers[k].tag)
+                    isLogged = true;
+            }
+
+            if(!isLogged) 
                 returnedSheet[i].splice(HISTORY_INDEX_START, 0, "[x]");
         }
 
@@ -286,6 +293,10 @@ function setData(auth, newData, attackCount, clanData)
         else {
             console.log("Sheets has been updated");
             getTime(auth, attackCount, clanData);
+
+            //Keep track of the last clan we fought / tracked
+            const tracker = require("./warTracker.js");
+            tracker.setNodeData(clanData);
         }
     });
 }

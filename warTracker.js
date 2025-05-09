@@ -6,6 +6,7 @@ const STORAGE_VAR = "clanData";
 const API_URL = "https://api.clashofclans.com/v1"
 
 const sheet = require("./sheets.js");
+const DELAY = 30000;
 const TEST = true;
 /**
  * clanData: {
@@ -24,6 +25,7 @@ module.exports.main = async function main() {
             });
 
     const data = await storage.getItem(STORAGE_VAR);
+    //return storage.setItem(STORAGE_VAR, { lastOpponent:  "#92JR0JJC", warEndTime: 0 });
     //const currentTime = new Date().getTime(); //Current Time in milliseconds
     
     const cwlWarData = await api({ endpoint: "cwl" });
@@ -46,11 +48,16 @@ module.exports.main = async function main() {
                 activeWarTag.result.clan = activeWarTag.result.opponent;
                 activeWarTag.result.opponent = tempClan;
 
-                if(isClanLogged(warData))
-                    return console.log("Looks like we've already added this clan's information already... Ignoring.");
+                
+                    
                 
                 console.log("------------------------------------------------");
             }
+        }
+
+        if(await isClanLogged(activeWarTag.result)) {
+            console.log("Looks like we've already added this clan's information already... Ignoring. (CWL)");
+            return setTimeout(() => { this.main();  }, DELAY);
         }
 
         //Add missing values so we can send the same cwl & clan war object
@@ -62,16 +69,18 @@ module.exports.main = async function main() {
         //===NOT DONE===NOT DONE===NOT DONE=== NOT DONE===//
 
         const warData = await api({ endpoint: "clan" });
-        if(warData.state != "warEnded") return;
+        if(warData?.state != "warEnded") return;
 
-        if(isClanLogged(warData))
-            return;
+        console.log("Looks like we've already added this clan's information already... Ignoring. (REGULAR)");
+        if(await isClanLogged(warData))
+            return setTimeout(() => { this.main() }, DELAY);
 
         sheet.run(warData);
 
     }
 
-    return;
+    console.log("Refreshing");
+    return setTimeout(() => { this.main() }, DELAY);
 
 
 
@@ -99,15 +108,15 @@ module.exports.main = async function main() {
         }
 }
 
-function findWarTag(warTags) {
+function findWarTag(rounds) {
     return new Promise(async (resolve) => {
-        for(let i = warTags.length - 1; i >= 0; i--) {
-            if(warTags[i].warTags[0] == "#0") continue;
+        for(let i = rounds.length - 1; i >= 0; i--) {
+            if(rounds[i].warTags[0] == "#0") continue;
 
-            for(let k = 0; k < warTags[i].warTags.length; k++) {
-                //console.log(`warTags[i]: ${warTags[i].warTags} || warTags[i][k]: ${warTags[i].warTags[k]}`);
+            for(let k = 0; k < rounds[i].warTags.length; k++) {
+                //console.log(`rounds[i]: ${rounds[i].warTags} || rounds[i][k]: ${rounds[i].warTags[k]}`);
                 //console.log(k);
-                let currentTag = await api({ endpoint: "warTags", warTag: (warTags[i].warTags[k]).slice( 1, (warTags[i].warTags[k]).length ) });
+                let currentTag = await api({ endpoint: "warTags", warTag: (rounds[i].warTags[k]).slice( 1, (rounds[i].warTags[k]).length ) });
                 if(currentTag.state != "warEnded") break;
 
                 //console.log(`Clan Name: ${currentTag.clan.name} || Opponent Name: ${currentTag.opponent.name}`)
@@ -121,18 +130,20 @@ function findWarTag(warTags) {
     }); //End of promise
 }
 
-module.exports.setNodeData = function(api) {
+module.exports.setNodeData = async function(api) {
     const formattedTime = UTCtoMS(api.endTime);
     const obj = {
-        lastOpponent: "",
+        lastOpponent: api.opponent.tag,
         warEndTime: formattedTime
     }
     console.log(obj);
-    //storage.setItem(STORAGE_VAR, obj);
+    await storage.setItem(STORAGE_VAR, obj);
 }
 
-function isClanLogged(warData) {
-    const nodeData = storage.getItem(STORAGE_VAR);
+async function isClanLogged(warData) {
+    const nodeData = await storage.getItem(STORAGE_VAR);
+
+    //console.log(`${nodeData.lastOpponent} || ${warData.opponent.tag}`)
     if(!nodeData || warData.opponent.tag != nodeData.lastOpponent) 
         return false;
 
