@@ -74,16 +74,19 @@ async function mainSheet(auth, warData) {
     await sheets.spreadsheets.values.get({
         spreadsheetId: config.mainSheetID,
         range: 'War Tracker!A3:ZZ',
+        valueRenderOption: 'FORMULA'
     }, async (err, res) => {
-
+        
         let returnedSheet = res.data.values || [];
         let warMembers = warData.clan.members;
 
+        //return console.log(returnedSheet[2]);
         //--How long the history tail is. We can use this to find out who wasn't involved in this recent war after
         //--we've added data for everyone that WAS been in war.
         let warHistoryLength = returnedSheet[0]?.length || 0;
 
         //Tag | Town Hall | Name | Total wars | Missed Attacks | Avg %  | Avg Last 10 %
+        let foundMap = new Map();
         for(let i = 0; i < returnedSheet.length; i++) {
 
             for(let loop = 0; loop < warMembers.length; loop++) {
@@ -106,10 +109,10 @@ async function mainSheet(auth, warData) {
                     returnedSheet[i][5] = parseInt(returnedSheet[i][5]) + ( warData.attacksPerMember - (warMembers[loop].attacks?.length || 0) );
 
                     //Average %
-                    let dumpFound = false;
                     for(let dL = 0; dL < infoDMP.length; dL++) {
                         if(infoDMP[dL][0] == warMembers[loop].tag) {
-                            dumpFound = true;
+                            foundMap.set(infoDMP[dL][0], true);
+
                             let totalPercentage = 0;
                             let totalAttacks = 0;
                             let lastTen = 0;
@@ -128,10 +131,9 @@ async function mainSheet(auth, warData) {
                                     totalPercentage += parseInt(infoDMP[dL][k]);
                                     totalAttacks++;
 
-                                    if(totalAttacks < 11) {
+                                    if(totalAttacks < 11)
                                         lastTen += parseInt(infoDMP[dL][k]);
-                                        console.log(`infoDMP[dL][${k}]: ${infoDMP[dL][k]}`)
-                                    }
+                                    
                                 } else {
                                     console.log("Miss")
                                 }
@@ -155,7 +157,7 @@ async function mainSheet(auth, warData) {
                         }
                     }//End of DumpLoop
 
-                    //Add the players attack outcomes at the start of the history page (6th index)
+                    //Add the players attack outcomes at the start of the history page
                     switch(warData.attacksPerMember) {
                         case 2:
                             if( (warMembers[loop].attacks?.length || 0) == 2 )
@@ -178,6 +180,13 @@ async function mainSheet(auth, warData) {
                     }
                 }
             }
+        }
+
+
+        //Add an extra row in infoDMP for those who weren't in war
+        for(let j = 0; j < infoDMP.length; j++) {
+            if(!foundMap.get(infoDMP[j][0])) 
+                infoDMP[j].splice(1, 0, "")
         }
 
         /**
@@ -261,7 +270,6 @@ async function mainSheet(auth, warData) {
             returnedSheet.unshift(newPlayer);
             infoDMP.unshift(newPlayerDMP);
         }
-        
 
         console.log("==============================================");
         console.log(returnedSheet);
@@ -275,9 +283,16 @@ async function mainSheet(auth, warData) {
     }); //End of sheets
 }
 
-function setData(auth, newData, attackCount, clanData)
+async function setData(auth, newData, attackCount, clanData)
 {
     const sheets = google.sheets({version: 'v4', auth});
+
+    //Should clear first because there are times were rows are reordered causing some cells to get merged with others while they have uneven lengths
+    await sheets.spreadsheets.values.clear({
+        spreadsheetId: config.mainSheetID,
+        range: 'War Tracker!A3:ZZ' 
+    }); 
+
     sheets.spreadsheets.values.update(
     {
         spreadsheetId: config.mainSheetID,
@@ -301,9 +316,15 @@ function setData(auth, newData, attackCount, clanData)
     });
 }
 
-function setDmpData(auth, newData)
+async function setDmpData(auth, newData)
 {
     const sheets = google.sheets({version: 'v4', auth});
+
+    await sheets.spreadsheets.values.clear({
+        spreadsheetId: config.mainSheetID,
+        range: 'InfoDMP!A2:ZZ' 
+    }); 
+
     sheets.spreadsheets.values.update(
     {
         spreadsheetId: config.mainSheetID,
@@ -465,7 +486,8 @@ async function getExtraInfo(auth, clanData)
 
         //War end date | Clan tag | Clan name | Clan level | War count | Outcome | Attacks | Enemy Attacks | Clan stars | Enemy stars | % | Enemy %
         if(!data) data = [];
-        data[data.length] = [
+        
+        data.unshift([
             currDate,
             clanData.opponent.tag,
             clanData.opponent.name,
@@ -478,11 +500,11 @@ async function getExtraInfo(auth, clanData)
             clanData.opponent.stars,
             `${clanData.clan.destructionPercentage}%`,
             `${clanData.opponent.destructionPercentage}%`
-        ]
+        ]);
 
         if(clanData.attacksPerMember == 1) {
-            data[data.length - 1][6] = `${clanData.clan.attacks}/${clanData.teamSize}`;
-            data[data.length - 1][7] = `${clanData.opponent.attacks}/${clanData.teamSize}`;
+            data[0][6] = `${clanData.clan.attacks}/${clanData.teamSize}`;
+            data[0][7] = `${clanData.opponent.attacks}/${clanData.teamSize}`;
         }
 
         setExtraData(auth, data);

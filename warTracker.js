@@ -25,7 +25,7 @@ module.exports.main = async function main() {
             });
 
     const data = await storage.getItem(STORAGE_VAR);
-    //return storage.setItem(STORAGE_VAR, { lastOpponent:  "#92JR0JJC", warEndTime: 0 });
+    //return storage.setItem(STORAGE_VAR, { lastOpponent:  "#2J2URGV8V", warEndTime: 0 });
     //const currentTime = new Date().getTime(); //Current Time in milliseconds
     
     const cwlWarData = await api({ endpoint: "cwl" });
@@ -56,7 +56,7 @@ module.exports.main = async function main() {
         }
 
         if(await isClanLogged(activeWarTag.result)) {
-            console.log("Looks like we've already added this clan's information already... Ignoring. (CWL)");
+            console.log(`Looks like we've already added this clan's information already... Ignoring. (CWL) -- ${new Date().toLocaleString()}`);
             return setTimeout(() => { this.main();  }, DELAY);
         }
 
@@ -69,9 +69,12 @@ module.exports.main = async function main() {
         //===NOT DONE===NOT DONE===NOT DONE=== NOT DONE===//
 
         const warData = await api({ endpoint: "clan" });
-        if(warData?.state != "warEnded") return;
+        if(warData.state = "warEnded") {
+            console.log(`It looks like we're still in war, and it's not yet over... (REGULAR) -- ${new Date().toLocaleString()}`);
+            return setTimeout(() => { this.main() }, DELAY);
+        }
 
-        console.log("Looks like we've already added this clan's information already... Ignoring. (REGULAR)");
+        console.log(`Looks like we've already added this clan's information already... Ignoring. (REGULAR) -- ${new Date().toLocaleString()}`);
         if(await isClanLogged(warData))
             return setTimeout(() => { this.main() }, DELAY);
 
@@ -181,10 +184,10 @@ async function api(options, failedAmount) {
                     throw new Error(`Unknown endpoint attempted while trying to make an API call: ${options.endpoint}`)
             }
         } catch(err) {
-            console.log(`================\n${err}`);
-            console.log(options);
-            console.log(`FailedAmount: ${failedAmount}`);
-            console.log("================")
+            //console.log(`================\n${err}`);
+            //console.log(options);
+            //console.log(`FailedAmount: ${failedAmount}`);
+            //console.log("================")
 
             //console.log(err.response.status);
             if(err.response.status != "404") {
