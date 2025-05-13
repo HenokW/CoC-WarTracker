@@ -7,7 +7,7 @@ const API_URL = "https://api.clashofclans.com/v1"
 
 const sheet = require("./sheets.js");
 const DELAY = 30000;
-const TEST = true;
+
 /**
  * clanData: {
  *  lastOpponent: clanTag,
@@ -31,13 +31,9 @@ module.exports.main = async function main() {
     const cwlWarData = await api({ endpoint: "cwl" });
 
     //Check to see if we're in CWL first, THEN check for normal war
+    
     if(cwlWarData != "404" && (cwlWarData.clans?.length || 0 ) > 1) {
         //We ARE in CWL - do with that as you will
-
-        /**
-         * Go through the rounds in reverse order, whichever value doesn't have an array of tags filled with "#0"
-         * is our match (just make sure the war has ended)
-         */
 
         let activeWarTag = await findWarTag(cwlWarData.rounds);
         //console.log(activeWarTag); 
@@ -48,9 +44,6 @@ module.exports.main = async function main() {
                 activeWarTag.result.clan = activeWarTag.result.opponent;
                 activeWarTag.result.opponent = tempClan;
 
-                
-                    
-                
                 console.log("------------------------------------------------");
             }
         }
@@ -66,17 +59,18 @@ module.exports.main = async function main() {
 
     } else {
         //We are NOT in CWL - do with that as you will
-        //===NOT DONE===NOT DONE===NOT DONE=== NOT DONE===//
-
+        
         const warData = await api({ endpoint: "clan" });
-        if(warData.state = "warEnded") {
+        if(warData.state != "warEnded") {
             console.log(`It looks like we're still in war, and it's not yet over... (REGULAR) -- ${new Date().toLocaleString()}`);
             return setTimeout(() => { this.main() }, DELAY);
         }
 
-        console.log(`Looks like we've already added this clan's information already... Ignoring. (REGULAR) -- ${new Date().toLocaleString()}`);
-        if(await isClanLogged(warData))
+        
+        if(await isClanLogged(warData)) {
+            console.log(`Looks like we've already added this clan's information already... Ignoring. (REGULAR) -- ${new Date().toLocaleString()}`);
             return setTimeout(() => { this.main() }, DELAY);
+        }
 
         sheet.run(warData);
 
@@ -84,31 +78,6 @@ module.exports.main = async function main() {
 
     console.log("Refreshing");
     return setTimeout(() => { this.main() }, DELAY);
-
-
-
-
-    //Garbage below -- Garbage below -- Garbage below -- Garbage below -- Garbage below -- 
-
-
-        //console.log(warData);
-        if(warData.state == "inWar") {
-            //If they're in war still, add their data to node-persist, and come back when war is over
-            //setNodeData(warData);
-
-            console.log("We are inWar!");
-
-            //===NOT DONE===NOT DONE===NOT DONE=== NOT DONE===//
-        } else if(warData.state == "warEnded") {
-            const nodeData = storage.getItem(STORAGE_VAR);
-            if(nodeData.lastOpponent == warData.opponent.tag) //We've already processed this clans data
-                return;
-            else {
-                sheet.run(warData);
-            }
-        } else {
-
-        }
 }
 
 function findWarTag(rounds) {
@@ -178,29 +147,22 @@ async function api(options, failedAmount) {
                 case "warTags":
                     const apiWarTagsData = await request.get(`${API_URL}/clanwarleagues/wars/%23${options.warTag}`);
                     return resolve(apiWarTagsData.data);
-                    break;
 
                 default:
                     throw new Error(`Unknown endpoint attempted while trying to make an API call: ${options.endpoint}`)
             }
         } catch(err) {
-            //console.log(`================\n${err}`);
-            //console.log(options);
-            //console.log(`FailedAmount: ${failedAmount}`);
-            //console.log("================")
-
-            //console.log(err.response.status);
-            if(err.response.status != "404") {
+            if(err?.response?.status != "404") {
                 if(typeof failedAmount != "number")
                     failedAmount = 0;
 
                 if(failedAmount < 3) {
                     failedAmount++;
 
-                    return setTimeout(() => {
+                    await new Promise(async (resolve) => setTimeout(async () => {
                         console.log(`Failed. Attempt #${failedAmount}`);
-                        api(options, failedAmount);
-                    }, 10000);
+                        resolve(api(options, failedAmount));
+                    }, 10000));
                 } else {
                     resolve(console.error(`============\nWe've run into an issue with the api!\n${err}\n============`));
                 }
