@@ -2,6 +2,7 @@
     "clanTag": "COC_CLANTAG",
     "mainSheetID": "GOOGLE_SHEETS_ID",
     
+    "mongodb_uri": "MONGODB_URI",
     "token": "DISCORD_API_TOKEN",
     "cocApiToken": "COC_API_TOKEN",
 

@@ -276,7 +276,10 @@ async function mainSheet(auth, warData) {
         console.log("==============================================");
         console.log(infoDMP);
 
-
+        
+        //Upload info to MongoDB first
+        let database = require("./database.js");
+        await database.storeInfo(warData);
 
         sortSheets(auth, returnedSheet, warData.attacksPerMember, warData, infoDMP);
 

@@ -31,12 +31,14 @@ module.exports.main = async function main() {
     const cwlWarData = await api({ endpoint: "cwl" });
 
     //Check to see if we're in CWL first, THEN check for normal war
-    
     if(cwlWarData != "404" && (cwlWarData.clans?.length || 0 ) > 1) {
         //We ARE in CWL - do with that as you will
 
         let activeWarTag = await findWarTag(cwlWarData.rounds);
-        //console.log(activeWarTag); 
+        if(activeWarTag.found == false) {
+            console.log(`Looks like no CWL matches have ended yet... Ignoring. (CWL) -- ${new Date().toLocaleString()}`);
+            return setTimeout(() => { this.main();  }, DELAY);
+        }
 
         if(activeWarTag.found) {
             if(!activeWarTag.result.clan.tag.includes(config.clanTag)) {
@@ -113,10 +115,12 @@ module.exports.setNodeData = async function(api) {
 }
 
 async function isClanLogged(warData) {
+    //return true;
+    //return console.log(warData);
     const nodeData = await storage.getItem(STORAGE_VAR);
 
     //console.log(`${nodeData.lastOpponent} || ${warData.opponent.tag}`)
-    if(!nodeData || warData.opponent.tag != nodeData.lastOpponent) 
+    if(!nodeData || warData?.opponent?.tag != nodeData?.lastOpponent) 
         return false;
 
     return true;

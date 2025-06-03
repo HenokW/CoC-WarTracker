@@ -14,6 +14,7 @@ const client = new Client({
     ]
 });
 
+process.env.TZ = 'America/Chicago';
 client.commands = new Collection();
 
 //Checks for all valid commands
