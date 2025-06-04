@@ -486,6 +486,9 @@ async function getExtraInfo(auth, clanData)
         else
             warResult = "Loss";
 
+        if(clanData.attacksPerMember == 1) 
+            warResult = `CWL ${warResult}`;
+
 
         //War end date | Clan tag | Clan name | Clan level | War count | Outcome | Attacks | Enemy Attacks | Clan stars | Enemy stars | % | Enemy %
         if(!data) data = [];

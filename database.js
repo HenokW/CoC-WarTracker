@@ -17,12 +17,20 @@ module.exports.storeInfo = async function(warData) {
         let result;
 
         //Win result
-        if(warData.clan.stars > warData.opponent.stars)
-            result = "Win";
-        else if(warData.clan.stars < warData.opponent.stars)
-            result = "Loss";
-        else 
-            result = "Tie";
+        if(warData.clan.stars == warData.opponent.stars) {
+            if(warData.clan.destructionPercentage > clan.opponent.destructionPercentage)
+                result = "Win";
+            else if(warData.clan.destructionPercentage < clan.opponent.destructionPercentage)
+                result = "Loss";
+            else
+                result = "Tie";
+        } else {
+            if(warData.clan.stars > warData.opponent.stars)
+                result = "Win";
+            else
+                result = "Loss";
+        }
+
 
         const membersList = warData.clan.members;
         const playerArr = await _findAll(COLLECTION.members, { search: 1 });
