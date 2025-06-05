@@ -548,8 +548,10 @@ async function sortSheets(auth, data, attacksPerMember, warData, infoDMP) {
     
     //Go through and check roles first
     const clanInfo = await request.get(`${API_URL}/clans/%23${config.clanTag}/members`);
-    for(let i = 0; i < clanInfo.data.items.length; i++) {
-        for(let k = 0; k < data.length; k++) {
+    for(let k = 0; k < data.length; k++) {
+        let isClanMember = false;
+
+        for(let i = 0; i < clanInfo.data.items.length; i++) {
             if(data[k][0] == clanInfo.data.items[i].tag) {
                 switch (clanInfo.data.items[i].role) {
                     case "member":
@@ -568,9 +570,15 @@ async function sortSheets(auth, data, attacksPerMember, warData, infoDMP) {
                         data[k][2] = "Leader";
                         break;
                 }
-            }
+                isClanMember = true;
+            } 
         }
+
+        //They're no longer in the clan, remove their role from the list so they can get sorted towards the bottom
+        if(!isClanMember)
+            data[k][2] = "";
     }
+
 
     //Then go through and sort the whole sheet going from Leader down to Members
     let map = new Map();
