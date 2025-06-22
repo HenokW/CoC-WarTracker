@@ -8,6 +8,7 @@ commands/
 ## Specific files
 package-lock.json
 credentials.json
+capital.json
 config.json
 token.json
 

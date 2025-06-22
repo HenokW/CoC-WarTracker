@@ -1,13 +1,18 @@
 const { mongodb_uri, clanTag } = require("./config.json");
 const { MongoClient } = require("mongodb");
 
-const DATABASE_NAME = "HouseHydra";
+const DATABASE_NAME = { war: "HouseHydra", clanCapital: "ClanCapital" };
 const COLLECTION = { members: "members", warhistory: "war-history" }
 
 const client = new MongoClient(mongodb_uri);
 
+exports.DATABASE_NAME = DATABASE_NAME;
+exports.COLLECTION = COLLECTION;
+exports.client = client;
+
 module.exports.storeInfo = async function(warData) {
     try {
+        console.log("1 1 1 1 11 ")
         // -- Prepare everything for storage first -- //
         let month = new Date().getMonth();
         let day = new Date().getDate();
@@ -33,7 +38,7 @@ module.exports.storeInfo = async function(warData) {
 
 
         const membersList = warData.clan.members;
-        const playerArr = await _findAll(COLLECTION.members, { search: 1 });
+        const playerArr = await findAll(DATABASE_NAME.war, COLLECTION.members, { search: 1 });
 
 
         console.log("-- -- -- Starting database upload -- -- --");
@@ -75,11 +80,11 @@ module.exports.storeInfo = async function(warData) {
             }
 
             if(playerArr.find(player => player.tag == membersList[i].tag) == undefined) {
-                await _add(COLLECTION.members, playerdb);
+                await add(DATABASE_NAME.war, COLLECTION.members, playerdb);
                 newEntry++;
             }
             else {
-                await _update(COLLECTION.members, {tag: membersList[i].tag}, playerdb);
+                await update(DATABASE_NAME.war, COLLECTION.members, {tag: membersList[i].tag}, playerdb);
                 oldEntry++;
             }
         }
@@ -90,7 +95,7 @@ module.exports.storeInfo = async function(warData) {
         // -- Moving onto clan history stuff now
 
         let historyExists = true;
-        let clanHistory = await _find(COLLECTION.warhistory, { clanTag: clanTag });
+        let clanHistory = await find(DATABASE_NAME.war, COLLECTION.warhistory, { clanTag: clanTag });
         if(clanHistory == null) {
             clanHistory = {
                 clanTag: clanTag,
@@ -123,9 +128,9 @@ module.exports.storeInfo = async function(warData) {
 
         clanHistory.log[clanHistory.log.length] = history_obj;
         if(historyExists)
-            await _update(COLLECTION.warhistory, { clanTag: clanTag }, clanHistory);
+            await update(DATABASE_NAME.war, COLLECTION.warhistory, { clanTag: clanTag }, clanHistory);
         else
-            await _add(COLLECTION.warhistory, clanHistory);
+            await add(DATABASE_NAME.war, COLLECTION.warhistory, clanHistory);
         console.log("> Clan history uploaded <")
 
         console.log("-- -- -- Database upload finished -- -- --");
@@ -138,9 +143,9 @@ module.exports.storeInfo = async function(warData) {
 }
 
 
-async function _add(collection, data) {
+async function add(db, collection, data) {
     try {
-        const database = await _createConnection();
+        const database = await createConnection(db);
         const list = database.collection(collection);
 
         return await list.insertOne(data);
@@ -149,9 +154,9 @@ async function _add(collection, data) {
     }
 }
 
-async function _update(collection, query, data) {
+async function update(db, collection, query, data) {
     try {
-        const database = await _createConnection();
+        const database = await createConnection(db);
         const list = database.collection(collection);
 
         return await list.updateOne(query, { $set: data});
@@ -160,9 +165,9 @@ async function _update(collection, query, data) {
     }
 }
 
-async function _find(collection, query) {
+async function find(db, collection, query) {
     try {
-        const database = await _createConnection();
+        const database = await createConnection(db);
         const list = database.collection(collection);
 
         return await list.findOne( query );
@@ -171,9 +176,9 @@ async function _find(collection, query) {
     }
 }
 
-async function _findAll(collection, query) {
+async function findAll(db, collection, query) {
     try {
-        const database = await _createConnection();
+        const database = await createConnection(db);
         const list = database.collection(collection);
 
         return await list.find( query ).toArray();
@@ -182,13 +187,13 @@ async function _findAll(collection, query) {
     }
 }
 
-async function _createConnection(failedAmount) {
+async function createConnection(db, failedAmount) {
     try {
 
         await client.connect();
-        const db = client.db(DATABASE_NAME)
+        const connection = client.db(db)
 
-        return db;
+        return connection;
 
     } catch(err) {
         if(typeof failedAmount != "number")
@@ -199,10 +204,16 @@ async function _createConnection(failedAmount) {
         
         await new Promise((resolve) => setTimeout(resolve, 1500));
         console.log(`Failed connecting to Mongodb Database || Attempt: ${failedAmount}`);
-        return _createConnection(failedAmount);
+        return createConnection(db, failedAmount);
         
         } else {
             throw err;
         }
     }
 }
+
+module.exports.add = add;
+module.exports.update = update;
+module.exports.find = find;
+module.exports.findAll = findAll;
+module.exports.createConnection = createConnection;

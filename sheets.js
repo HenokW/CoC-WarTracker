@@ -1,3 +1,4 @@
+const database = require("./database.js");
 const config = require("./config.json");
 const storage = require("node-persist");
 const {google} = require('googleapis');
@@ -11,6 +12,7 @@ const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 const TOKEN_PATH = 'token.json';
 
 const STAR = "☆";
+const DISTRICT_IDS = 70000000; //Capital Peak
 const HISTORY_INDEX_START = 8;
 const API_URL = "https://api.clashofclans.com/v1"
 const TOWNHALL_PATH = "=IMAGE(\"https://henokw.xyz/resources/coc/TH<NUM>.png\", 1)";
@@ -27,12 +29,20 @@ const TOWNHALL_PATH = "=IMAGE(\"https://henokw.xyz/resources/coc/TH<NUM>.png\", 
 
 
 
-module.exports.run = async function(warData) {
+module.exports.run = async function(data, sheet, clanList, mongoHistoryData) {
     fs.readFile('credentials.json', (err, content) =>
         {
             if (err) return console.log('Error loading client secret file:', err);
     
-            authorize(JSON.parse(content), mainSheet, warData, false);
+            switch(sheet) {
+                case "main":
+                    authorize(JSON.parse(content), mainSheet, data); //Data in this case means the returned JSON from the api
+                    break;
+
+                case "capital":
+                    authorize(JSON.parse(content), capitalSheet, data, mongoHistoryData, clanList); //Data in this case means mongo member data
+                    break;
+            }
         });
 }
     
@@ -40,7 +50,7 @@ module.exports.run = async function(warData) {
 //this.run(null);
 
 
-function authorize(credentials, callback, warData, isCWL) {
+function authorize(credentials, callback, warData, mongoHistory, clanList) {
   const {client_secret, client_id, redirect_uris} = credentials.installed;
   const oAuth2Client = new google.auth.OAuth2(
       client_id, client_secret, redirect_uris[0]);
@@ -49,7 +59,7 @@ function authorize(credentials, callback, warData, isCWL) {
   fs.readFile(TOKEN_PATH, (err, token) => {
     if (err) return getNewToken(oAuth2Client, callback);
     oAuth2Client.setCredentials(JSON.parse(token));
-    callback(oAuth2Client, warData);
+    callback(oAuth2Client, warData, mongoHistory, clanList);
   });
 }
 
@@ -79,11 +89,6 @@ async function mainSheet(auth, warData) {
         
         let returnedSheet = res.data.values || [];
         let warMembers = warData.clan.members;
-
-        //return console.log(returnedSheet[2]);
-        //--How long the history tail is. We can use this to find out who wasn't involved in this recent war after
-        //--we've added data for everyone that WAS been in war.
-        let warHistoryLength = returnedSheet[0]?.length || 0;
 
         //Tag | Town Hall | Name | Total wars | Missed Attacks | Avg %  | Avg Last 10 %
         let foundMap = new Map();
@@ -191,9 +196,7 @@ async function mainSheet(auth, warData) {
 
         /**
          * Now that we've done everything for those who were present in this war
-         * we can go back through and check the history length of everyone. If 
-         * their history tail isn't (warHistoryLength + 1) go through and mark their history
-         * with a [x], and potentially move them to the bottom of the array?
+         * we can go back through and check the history length of everyone. 
          */
 
         for(let i = 0; i < returnedSheet.length; i++) {
@@ -284,6 +287,349 @@ async function mainSheet(auth, warData) {
         sortSheets(auth, returnedSheet, warData.attacksPerMember, warData, infoDMP);
 
     }); //End of sheets
+}
+
+async function capitalSheet(auth, memberdb, historydb, clanList) {
+    const sheets = google.sheets({version: 'v4', auth});
+    const capitalLastAverage = 5;
+
+    await sheets.spreadsheets.values.get({
+        spreadsheetId: config.mainSheetID,
+        range: 'Clan Capital!A3:ZZ',
+        valueRenderOption: 'FORMULA'
+    }, async (err, res) => {
+        let returnedSheet = res.data.values || [];
+
+        for(let i = 0; i < memberdb.length; i++) {
+
+            let hasSheetEntry = false;
+            for(let j = 0; j < returnedSheet.length; j++) {
+                if(memberdb[i].tag == returnedSheet[j][0]) {
+                    hasSheetEntry = true;
+
+                    const clanMemberData = _findClanMemberData(clanList, memberdb[i].tag);
+                    if(clanMemberData != null) {
+                        returnedSheet[j][1] = TOWNHALL_PATH.replace("<NUM>", clanMemberData.townHallLevel);
+                        returnedSheet[j][2] = clanMemberData.role;
+                    } else {
+                        returnedSheet[j][1] = "";
+                        returnedSheet[j][2] = "";
+                    }
+
+                    returnedSheet[j][3] = memberdb[i].name;
+                    returnedSheet[j][4] = memberdb[i].attacks;
+                    returnedSheet[j][5] = memberdb[i].missedAttacks;
+                    returnedSheet[j][6] = memberdb[i].totalGoldLooted.toLocaleString();
+                    returnedSheet[j][7] = (memberdb[i].totalGoldLooted / memberdb[i].attackLog.length).toLocaleString();
+                    
+                    let sum = 0; 
+                    for(let k = 0; k < memberdb[i].attackLog.length; k++) 
+                        sum += memberdb[i].attackLog[k].goldLooted;
+
+                    returnedSheet[j][8] = memberdb[i].attackLog.length < capitalLastAverage ? (sum / memberdb[i].attackLog.length).toLocaleString() : (sum / capitalLastAverage).toLocaleString();
+
+                    const highestDistrict = _findFavoriteDistrict(memberdb[i].districtLog);
+                    returnedSheet[j][9] = (_districtToText(highestDistrict));
+                    returnedSheet[j].splice(10, 0, `${memberdb[i].attackLog[0].attacks}/5`);
+                }
+            }
+
+            if(!hasSheetEntry) {
+                const highestDistrict = _findFavoriteDistrict(memberdb[i].districtLog);
+
+                let obj = [];
+                obj[0] = memberdb[i].tag;
+            
+                const clanMemberData = _findClanMemberData(clanList, memberdb[i].tag);
+                if(clanMemberData != null) {
+                    obj[1] = TOWNHALL_PATH.replace("<NUM>", clanMemberData.townHallLevel);
+                    obj[2] = clanMemberData.role;
+                } else {
+                    obj[1] = "";
+                    obj[2] = "";
+                }
+
+                obj[3] = memberdb[i].name;
+                obj[4] = memberdb[i].attacks;
+                obj[5] = memberdb[i].missedAttacks;
+                obj[6] = memberdb[i].totalGoldLooted.toLocaleString();
+                obj[7] = memberdb[i].totalGoldLooted.toLocaleString();
+                obj[8] = memberdb[i].totalGoldLooted.toLocaleString();
+                obj[9] = (_districtToText(highestDistrict));
+                obj[10] = `${memberdb[i].attackLog[0].attacks}/5`;
+
+                returnedSheet.push(obj);
+            }
+        }
+
+        await setCapitalData(auth, returnedSheet, historydb)
+        await setCapitalHistory(auth);
+
+    });
+}
+
+function _districtToText(districtID) {
+    switch(districtID) {
+        case 0:
+            return "";
+
+        case 70000000:
+            return "Capital Peak";
+
+        case 70000001:
+            return "Barbarian Camp";
+            
+        case 70000002:
+            return "Wizard Valley";
+
+        case 70000003:
+            return "Balloon Lagoon";
+
+        case 70000004:
+            return "Builder's Workshop";
+
+        case 70000005:
+            return "Dragon Cliffs";
+
+        case 70000006:
+            return "Golem Quarry";
+
+        case 70000007:
+            return "Skeleton Park";
+
+        case 70000008:
+            return "Goblin Mines";
+
+
+        default:
+            return "New Capital";
+    }
+}
+
+function _findFavoriteDistrict(districtLog) {
+
+    console.log(districtLog);
+
+    let highestDistrict = null;
+    let district = 0;
+
+    for(let k = 0; k < Object.keys(districtLog).length; k++) {
+        if(k == 0) {
+            highestDistrict = districtLog[DISTRICT_IDS + k];
+            district = DISTRICT_IDS + k;
+            continue;
+        }
+
+        //Won't use Greater than or equal to because I want the highest base to be considered their favorite
+        if(districtLog[DISTRICT_IDS + k].attackCount > highestDistrict.attackCount) {
+            highestDistrict = districtLog[DISTRICT_IDS + k];
+            district = DISTRICT_IDS + k;
+        }
+    }
+
+    console.log(highestDistrict.attackCount);
+
+    if(highestDistrict.attackCount <= 0)
+        return 0;
+
+    return district;
+}
+
+function _findClanMemberData(clanList, query) {
+    for(let i = 0; i < clanList.items.length; i++) {
+        if(clanList.items[i].tag == query) {
+            return clanList.items[i];
+        }
+    }
+
+    return null;
+}
+
+function _sortByRoles(sheet) {
+    for(let i = 0; i < sheet.length; i++) {
+        switch (sheet[i][2]) {
+            case "member":
+                sheet[i][2] = "Member";
+                break;
+
+            case "admin":
+                sheet[i][2] = "Elder";
+                break;
+
+            case "coLeader":
+                sheet[i][2] = "Co-Leader";
+                break;
+
+            case "leader":
+                sheet[i][2] = "Leader";
+                break;
+        }
+    }
+
+    //Then go through and sort the whole sheet going from Leader down to Members
+    let map = new Map();
+
+    map.set("", 0);
+    map.set("Member", 1);
+    map.set("Elder", 2);
+    map.set("Co-Leader", 3);
+    map.set("Leader", 4);
+
+    for(let i = 1; i < sheet.length; i++) {
+        //Backtrack to see if the current indexed number is less than the one before it - keep going 
+        for(let k = i - 1; k >= 0; k--) {
+            if(map.get(sheet[i][2]) < map.get(sheet[k][2])) {
+                if(!sheet[k - 1]) {
+                    if(map.get(sheet[i][2]) >= map.get(""))
+                        sheet.splice( k, 0, ( sheet.splice(i, 1) )[0] );
+                    break;
+                }
+
+                if(map.get(sheet[i][2]) >= map.get(sheet[k - 1][2]))
+                    sheet.splice( k, 0, ( sheet.splice(i, 1) )[0] )
+                else {
+                    continue;
+                }
+            }
+        }
+    }
+
+    //Ngl I'm hecka lazy, I did it the opposite way
+    sheet.reverse();
+    console.log("Sheets list has successfully been organized by roles.");
+    return sheet;
+}
+
+function _formatDateString(time, returnYear) {
+    const formattedString = time.replace(
+        /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})\.(\d+)(Z)$/, 
+        '$1-$2-$3T$4:$5:$6.$7$8'
+    );
+
+    const date = new Date(formattedString);
+
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const year = date.getFullYear();
+
+    if(returnYear)
+        return `${month}/${day}/${year}`;
+
+    return `${month}/${day}`;
+}
+
+async function setCapitalData(auth, newData, mongoClanHistory)
+{
+    const sheets = google.sheets({version: 'v4', auth});
+
+    //Should clear first because there are times were rows are reordered causing some cells to get merged with others while they have uneven lengths
+    await sheets.spreadsheets.values.clear({
+        spreadsheetId: config.mainSheetID,
+        range: 'Clan Capital!A3:ZZ' 
+    }); 
+
+    const sortedSheet = _sortByRoles(newData);
+    sheets.spreadsheets.values.update(
+    {
+        spreadsheetId: config.mainSheetID,
+        range: 'Clan Capital!A3:ZZ',
+        valueInputOption:"USER_ENTERED",
+        resource:{
+            values: sortedSheet
+          }
+    }, (err, res) =>
+    {
+        if(err)
+            console.log(err);
+        else {
+            console.log("Sheets has been updated");
+            setCapitalTime(auth, mongoClanHistory);
+
+            
+        }
+    });
+}
+
+async function setCapitalHistory(auth)
+{
+    const sheets = google.sheets({version: 'v4', auth});
+
+    await sheets.spreadsheets.values.get(
+    {
+        spreadsheetId: config.mainSheetID,
+        range: 'Capital History!A2:G',
+    }, async (err, res) =>
+    {
+        let data = res.data.values || [];
+
+        const historydb = await database.find(database.DATABASE_NAME.clanCapital, database.COLLECTION.warhistory, { clanTag: `#${config.clanTag}` });
+        data.unshift([
+            `${_formatDateString(historydb.raidHistory[0].raidStartDate, true)} - ${_formatDateString(historydb.raidHistory[0].raidEndDate, true)}`,
+            historydb.raidHistory[0].totalAttacks,
+            historydb.raidHistory[0].totalLootEarned,
+            historydb.raidHistory[0].districtsKilled,
+            historydb.raidHistory[0].raidCount,
+            historydb.raidHistory[0].defenseCount,
+            `${historydb.raidHistory[0].clanMembers}/50`
+        ]);
+														
+
+        sheets.spreadsheets.values.update(
+        {
+            spreadsheetId: config.mainSheetID,
+            range: 'Capital History!A2:G',
+            valueInputOption:"USER_ENTERED",
+            resource:{
+                values: data
+            }
+        }, (err, res) =>
+        {
+            if(err)
+                console.log(err);
+            else {
+                console.log("History has successfully been added for Capital Sheet data.");
+            }
+        });
+    });
+}
+
+async function setCapitalTime(auth, mongoClanHistory) {
+    const sheets = google.sheets({version: 'v4', auth});
+    await sheets.spreadsheets.values.get(
+    {
+        spreadsheetId: config.mainSheetID,
+        range: 'Clan Capital!K2:ZZ2',
+    }, async (err, res) =>
+    {
+        if (err) return console.log('The API returned an error: ' + err);
+        let data = res.data.values || [[]];
+
+        const clanHistory = await database.find(database.DATABASE_NAME.clanCapital, database.COLLECTION.warhistory, { clanTag: `#${config.clanTag}` })
+        const startDate = _formatDateString(clanHistory.raidHistory[0].raidStartDate);
+        const endDate = _formatDateString(clanHistory.raidHistory[0].raidEndDate);
+
+        data[0].unshift(`${startDate} - ${endDate}`);
+        sheets.spreadsheets.values.update(
+        {
+            spreadsheetId: config.mainSheetID,
+            range: 'Clan Capital!K2:ZZ2',
+            valueInputOption:"USER_ENTERED",
+            resource:{
+                values: data
+            }
+        }, (err, res) =>
+        {
+            if(err)
+                console.log(err);
+            else {
+                console.log("Time has successfully been added for Capital Sheet data.");
+            }
+        });
+
+        //Keep track of the last clan we fought / tracked
+        const tracker = require("./warTracker.js");
+        tracker.setCapitalNodeData(startDate, endDate);
+    });
 }
 
 async function setData(auth, newData, attackCount, clanData)

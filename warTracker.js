@@ -1,8 +1,10 @@
+const database = require("./database.js");
 const config = require("./config.json");
 const storage = require("node-persist");
+const raids = require("./raids.js");
 const axios = require("axios");
 
-const STORAGE_VAR = "clanData";
+const STORAGE_VAR = { war: "clanData", clanCapital: "capitalData" };
 const API_URL = "https://api.clashofclans.com/v1"
 
 const sheet = require("./sheets.js");
@@ -17,16 +19,14 @@ const DELAY = 30000;
  */
 module.exports.main = async function main() {
     await storage.init(
-            {
-                stringify: JSON.stringify,
-                parse: JSON.parse,
-                encoding: "utf8",
-                ttl: false
-            });
+    {
+        stringify: JSON.stringify,
+        parse: JSON.parse,
+        encoding: "utf8",
+        ttl: false
+    });
 
-    const data = await storage.getItem(STORAGE_VAR);
-    //return storage.setItem(STORAGE_VAR, { lastOpponent:  "#2J2URGV8V", warEndTime: 0 });
-    //const currentTime = new Date().getTime(); //Current Time in milliseconds
+    await capitalRaidCheck();
     
     const cwlWarData = await api({ endpoint: "cwl" });
 
@@ -57,7 +57,7 @@ module.exports.main = async function main() {
 
         //Add missing values so we can send the same cwl & clan war object
         activeWarTag.result.attacksPerMember = 1; 
-        sheet.run(activeWarTag.result);
+        sheet.run(activeWarTag.result, "main");
 
     } else {
         //We are NOT in CWL - do with that as you will
@@ -69,17 +69,46 @@ module.exports.main = async function main() {
         }
 
         
-        if(await isClanLogged(warData)) {
+        if(await isClanLogged(warData, "main")) {
             console.log(`Looks like we've already added this clan's information already... Ignoring. (REGULAR) -- ${new Date().toLocaleString()}`);
             return setTimeout(() => { this.main() }, DELAY);
         }
 
-        sheet.run(warData);
+        sheet.run(warData, "main");
 
     }
 
     console.log("Refreshing");
+
     return setTimeout(() => { this.main() }, DELAY);
+}
+
+async function capitalRaidCheck() {
+    const capitalHistory = await database.find(database.DATABASE_NAME.clanCapital, database.COLLECTION.warhistory, { clanTag: `#${config.clanTag}` });
+    const clanCapitalInfo = await api({ endpoint: "clanCapital" });
+
+    if(clanCapitalInfo.items[0].state != "ended")
+        return console.log(`It looks like we're still participating in capital raids... Ignoring. (Clan Capital) -- ${new Date().toLocaleString()}`);
+
+    let nodeData = await storage.getItem(STORAGE_VAR.clanCapital);
+    if(nodeData == null || nodeData == undefined) {
+        nodeData = {
+            lastRaidStartDate: null,
+            lastRaidEndDate: null
+        }
+    }
+
+    if(nodeData.lastRaidEndDate != clanCapitalInfo.items[0].endTime) {
+        //Let's store everything in MongoDB first, then use that info for sheets
+        await raids.storeCapitalInfo(clanCapitalInfo);
+        const mongoData = await database.findAll(database.DATABASE_NAME.clanCapital, database.COLLECTION.members, { search: 1 });
+        const clanList = await api({ endpoint: "clanMembers" });
+
+        //Mongo data, "capital", clanList, Mongo History Data
+        sheet.run(mongoData, "capital", clanList, capitalHistory);
+
+    } else
+        return console.log(`It looks like we've already tracked the last Clan Capital week.... Ignoring. (Clan Capital) -- ${new Date().toLocaleString()}`);
 }
 
 function findWarTag(rounds) {
@@ -110,16 +139,21 @@ module.exports.setNodeData = async function(api) {
         lastOpponent: api.opponent.tag,
         warEndTime: formattedTime
     }
-    console.log(obj);
-    await storage.setItem(STORAGE_VAR, obj);
+    await storage.setItem(STORAGE_VAR.war, obj);
+}
+
+module.exports.setCapitalNodeData = async function(startDate, endDate) {
+    const obj = {
+        lastRaidStartDate: startDate,
+        lastRaidEndDate: endDate
+    }
+
+    await storage.setItem(STORAGE_VAR.clanCapital, obj);
 }
 
 async function isClanLogged(warData) {
-    //return true;
-    //return console.log(warData);
-    const nodeData = await storage.getItem(STORAGE_VAR);
+    const nodeData = await storage.getItem(STORAGE_VAR.war);
 
-    //console.log(`${nodeData.lastOpponent} || ${warData.opponent.tag}`)
     if(!nodeData || warData?.opponent?.tag != nodeData?.lastOpponent) 
         return false;
 
@@ -152,6 +186,14 @@ async function api(options, failedAmount) {
                     const apiWarTagsData = await request.get(`${API_URL}/clanwarleagues/wars/%23${options.warTag}`);
                     return resolve(apiWarTagsData.data);
 
+                case "clanCapital":
+                    const apiClanCapital = await request.get(`${API_URL}/clans/%23${config.clanTag}/capitalraidseasons`);
+                    return resolve(apiClanCapital.data);
+
+                case "clanMembers":
+                    const apiMembersList = await request.get(`${API_URL}/clans/%23${config.clanTag}/members`);
+                    return resolve(apiMembersList.data);
+
                 default:
                     throw new Error(`Unknown endpoint attempted while trying to make an API call: ${options.endpoint}`)
             }
@@ -176,3 +218,5 @@ async function api(options, failedAmount) {
         }
     });
 }
+
+module.exports.api = api;
