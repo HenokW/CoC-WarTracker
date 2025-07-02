@@ -12,7 +12,6 @@ exports.client = client;
 
 module.exports.storeInfo = async function(warData) {
     try {
-        console.log("1 1 1 1 11 ")
         // -- Prepare everything for storage first -- //
         let month = new Date().getMonth();
         let day = new Date().getDate();
@@ -23,9 +22,9 @@ module.exports.storeInfo = async function(warData) {
 
         //Win result
         if(warData.clan.stars == warData.opponent.stars) {
-            if(warData.clan.destructionPercentage > clan.opponent.destructionPercentage)
+            if(warData.clan.destructionPercentage > warData.opponent.destructionPercentage)
                 result = "Win";
-            else if(warData.clan.destructionPercentage < clan.opponent.destructionPercentage)
+            else if(warData.clan.destructionPercentage < warData.opponent.destructionPercentage)
                 result = "Loss";
             else
                 result = "Tie";

@@ -299,6 +299,7 @@ async function capitalSheet(auth, memberdb, historydb, clanList) {
         valueRenderOption: 'FORMULA'
     }, async (err, res) => {
         let returnedSheet = res.data.values || [];
+        const clanHistory = await database.find(database.DATABASE_NAME.clanCapital, database.COLLECTION.warhistory, { clanTag: `#${config.clanTag}` })
 
         for(let i = 0; i < memberdb.length; i++) {
 
@@ -306,6 +307,13 @@ async function capitalSheet(auth, memberdb, historydb, clanList) {
             for(let j = 0; j < returnedSheet.length; j++) {
                 if(memberdb[i].tag == returnedSheet[j][0]) {
                     hasSheetEntry = true;
+
+                    //If they haven't been added
+                    if(memberdb[i].attackLog[0].raidEndDate != clanHistory.raidHistory[0].raidEndDate) {
+                        returnedSheet[j].splice(10, 0, `[x]`);
+
+                        continue;
+                    }
 
                     const clanMemberData = _findClanMemberData(clanList, memberdb[i].tag);
                     if(clanMemberData != null) {
@@ -360,6 +368,13 @@ async function capitalSheet(auth, memberdb, historydb, clanList) {
 
                 returnedSheet.push(obj);
             }
+        }
+
+        //Go back through the sheet, and remove anyone's role that's not in the clan
+        for(let i = 0; i < returnedSheet.length; i++) {
+            let userSearch = _findClanMemberData(clanList, returnedSheet[i][0]);
+            if(!userSearch)
+                returnedSheet[i][0] = "";
         }
 
         await setCapitalData(auth, returnedSheet, historydb)
@@ -628,7 +643,7 @@ async function setCapitalTime(auth, mongoClanHistory) {
 
         //Keep track of the last clan we fought / tracked
         const tracker = require("./warTracker.js");
-        tracker.setCapitalNodeData(startDate, endDate);
+        tracker.setCapitalNodeData(clanHistory.raidHistory[0].raidStartDate, clanHistory.raidHistory[0].raidEndDate);
     });
 }
 

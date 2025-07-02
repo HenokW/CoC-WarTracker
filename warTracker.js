@@ -84,8 +84,11 @@ module.exports.main = async function main() {
 }
 
 async function capitalRaidCheck() {
+
     const capitalHistory = await database.find(database.DATABASE_NAME.clanCapital, database.COLLECTION.warhistory, { clanTag: `#${config.clanTag}` });
     const clanCapitalInfo = await api({ endpoint: "clanCapital" });
+
+    //const clanCapitalInfo = require("./capital.json");
 
     if(clanCapitalInfo.items[0].state != "ended")
         return console.log(`It looks like we're still participating in capital raids... Ignoring. (Clan Capital) -- ${new Date().toLocaleString()}`);
