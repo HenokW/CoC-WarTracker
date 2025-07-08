@@ -374,7 +374,7 @@ async function capitalSheet(auth, memberdb, historydb, clanList) {
         for(let i = 0; i < returnedSheet.length; i++) {
             let userSearch = _findClanMemberData(clanList, returnedSheet[i][0]);
             if(!userSearch)
-                returnedSheet[i][0] = "";
+                returnedSheet[i][2] = "";
         }
 
         await setCapitalData(auth, returnedSheet, historydb)
