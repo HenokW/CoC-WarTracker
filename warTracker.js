@@ -1,7 +1,8 @@
-const database = require("./database.js");
+const database = require("./mongodb/database.js");
+const raids = require("./mongodb/raids.js");
+const wars = require("./mongodb/wars.js");
 const config = require("./config.json");
 const storage = require("node-persist");
-const raids = require("./raids.js");
 const axios = require("axios");
 
 const STORAGE_VAR = { war: "clanData", clanCapital: "capitalData" };
@@ -27,9 +28,8 @@ module.exports.main = async function main() {
     });
 
     await capitalRaidCheck();
-    
-    const cwlWarData = await api({ endpoint: "cwl" });
 
+    const cwlWarData = await api({ endpoint: "cwl" });
     //Check to see if we're in CWL first, THEN check for normal war
     if(cwlWarData != "404" && (cwlWarData.clans?.length || 0 ) > 1) {
         //We ARE in CWL - do with that as you will
@@ -57,6 +57,9 @@ module.exports.main = async function main() {
 
         //Add missing values so we can send the same cwl & clan war object
         activeWarTag.result.attacksPerMember = 1; 
+        
+
+        await wars.storeWarInfo(activeWarTag.result); //Store to mongodb first
         sheet.run(activeWarTag.result, "main");
 
     } else {
@@ -74,6 +77,7 @@ module.exports.main = async function main() {
             return setTimeout(() => { this.main() }, DELAY);
         }
 
+        await wars.storeWarInfo(warData); //Store to mongodb first
         sheet.run(warData, "main");
 
     }
@@ -85,33 +89,38 @@ module.exports.main = async function main() {
 
 async function capitalRaidCheck() {
 
-    const capitalHistory = await database.find(database.DATABASE_NAME.clanCapital, database.COLLECTION.warhistory, { clanTag: `#${config.clanTag}` });
-    const clanCapitalInfo = await api({ endpoint: "clanCapital" });
+    try {
+        const capitalHistory = await database.find(database.DATABASE_NAME.clanCapital, database.COLLECTION.warhistory, { clanTag: `#${config.clanTag}` });
+        const clanCapitalInfo = await api({ endpoint: "clanCapital" });
 
-    //const clanCapitalInfo = require("./capital.json");
+        //const clanCapitalInfo = require("./capital.json");
 
-    if(clanCapitalInfo.items[0].state != "ended")
-        return console.log(`It looks like we're still participating in capital raids... Ignoring. (Clan Capital) -- ${new Date().toLocaleString()}`);
+        if(clanCapitalInfo.items[0].state != "ended")
+            return console.log(`It looks like we're still participating in capital raids... Ignoring. (Clan Capital) -- ${new Date().toLocaleString()}`);
 
-    let nodeData = await storage.getItem(STORAGE_VAR.clanCapital);
-    if(nodeData == null || nodeData == undefined) {
-        nodeData = {
-            lastRaidStartDate: null,
-            lastRaidEndDate: null
+        let nodeData = await storage.getItem(STORAGE_VAR.clanCapital);
+        if(nodeData == null || nodeData == undefined) {
+            nodeData = {
+                lastRaidStartDate: null,
+                lastRaidEndDate: null
+            }
         }
+
+        if(nodeData.lastRaidEndDate != clanCapitalInfo.items[0].endTime) {
+            //Let's store everything in MongoDB first, then use that info for sheets
+            await raids.storeCapitalInfo(clanCapitalInfo);
+            const mongoData = await database.findAll(database.DATABASE_NAME.clanCapital, database.COLLECTION.members, { search: 1 });
+            const clanList = await api({ endpoint: "clanMembers" });
+
+            //Mongo data, "capital", clanList, Mongo History Data
+            sheet.run(mongoData, "capital", clanList, capitalHistory);
+
+        } else
+            return console.log(`It looks like we've already tracked the last Clan Capital week.... Ignoring. (Clan Capital) -- ${new Date().toLocaleString()}`);
+
+    } catch(err) {
+        console.error(err);
     }
-
-    if(nodeData.lastRaidEndDate != clanCapitalInfo.items[0].endTime) {
-        //Let's store everything in MongoDB first, then use that info for sheets
-        await raids.storeCapitalInfo(clanCapitalInfo);
-        const mongoData = await database.findAll(database.DATABASE_NAME.clanCapital, database.COLLECTION.members, { search: 1 });
-        const clanList = await api({ endpoint: "clanMembers" });
-
-        //Mongo data, "capital", clanList, Mongo History Data
-        sheet.run(mongoData, "capital", clanList, capitalHistory);
-
-    } else
-        return console.log(`It looks like we've already tracked the last Clan Capital week.... Ignoring. (Clan Capital) -- ${new Date().toLocaleString()}`);
 }
 
 function findWarTag(rounds) {

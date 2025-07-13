@@ -1,8 +1,6 @@
-const warTracker = require("./warTracker.js");
-const { clanTag } = require("./config.json");
-//const capital = require("./capital.json");
+const warTracker = require("../warTracker.js");
+const { clanTag } = require("../config.json");
 const database = require("./database.js");
-const { data } = require("node-persist");
 
 module.exports.storeCapitalInfo = async function(capitalData) {
     console.log("-- -- -- Starting database upload (Clan Capital) -- -- --");

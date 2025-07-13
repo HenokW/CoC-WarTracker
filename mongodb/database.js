@@ -1,4 +1,4 @@
-const { mongodb_uri, clanTag } = require("./config.json");
+const { mongodb_uri, clanTag } = require("../config.json");
 const { MongoClient } = require("mongodb");
 
 const DATABASE_NAME = { war: "HouseHydra", clanCapital: "ClanCapital" };
@@ -40,7 +40,7 @@ module.exports.storeInfo = async function(warData) {
         const playerArr = await findAll(DATABASE_NAME.war, COLLECTION.members, { search: 1 });
 
 
-        console.log("-- -- -- Starting database upload -- -- --");
+        console.log("-- -- -- Starting Capital database upload -- -- --");
 
         let newEntry = 0, oldEntry = 0;
         for(let i = 0; i < warData.clan.members.length; i++) {
@@ -141,6 +141,20 @@ module.exports.storeInfo = async function(warData) {
 
 }
 
+module.exports.defaultClanMember = function() {
+    const playerdb = {
+        tag: null,
+        name: null,
+        attacks: 0,
+        missedAttacks: 0,
+
+        warLog: [],
+        defenceLog: [],
+        search: 1
+    }
+
+    return playerdb;
+}
 
 async function add(db, collection, data) {
     try {
