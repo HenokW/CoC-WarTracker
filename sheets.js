@@ -28,7 +28,7 @@ module.exports.run = async function(data, sheet, clanList) {
 
         switch(sheet) {
             case "main":
-                authorize(JSON.parse(content), warSheet, data); //Data in this case means the returned JSON from the api
+                authorize(JSON.parse(content), warSheet, data, clanList); //Data in this case means the returned JSON from the api
                 break;
 
             case "capital":
@@ -62,7 +62,7 @@ function authorize(credentials, callback, warData, mongoHistory, clanList) {
 
 
 */
-async function warSheet(auth, warData) {
+async function warSheet(auth, warData, clanList) {
     const sheets = google.sheets({version: 'v4', auth});
 
     //Get the info of every one in the database
@@ -94,6 +94,12 @@ async function warSheet(auth, warData) {
                     const averages = _findWarAverages(dbInstance);
                     returnedSheet[i][6] = `${((averages.regular / averages.attackCount) || 0).toFixed(2)}%`;
                     returnedSheet[i][7] = `${((averages.lastTen / averages.lastTenCount) || 0).toFixed(2)}%`;
+
+                    const clanMemberData = _findClanMemberData(clanList, warMembers[j].tag);
+                    if(clanMemberData != null)
+                        returnedSheet[i][2] = clanMemberData.role;
+                    else
+                        returnedSheet[i][2] = "";
 
                     //Adding war results at the start of the attack history
                     switch(warData.attacksPerMember) {
@@ -154,6 +160,14 @@ async function warSheet(auth, warData) {
                 `${((newAverages.regular / newAverages.attackCount) || 0).toFixed(2)}%`,
                 `${((newAverages.lastTen / newAverages.lastTenCount) || 0).toFixed(2)}%`
             ];
+
+            //Checking for their roles here rq
+            const clanMemberData = _findClanMemberData(clanList, dbNewInstance.tag);
+            if(clanMemberData != null)
+                newPlayer[2] = clanMemberData.role;
+            else
+                newPlayer[2] = "";
+
 
             switch(warData.attacksPerMember) {
                 case 2:

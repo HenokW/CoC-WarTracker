@@ -60,7 +60,9 @@ module.exports.main = async function main() {
         
 
         await wars.storeWarInfo(activeWarTag.result); //Store to mongodb first
-        sheet.run(activeWarTag.result, "main");
+        const clanList = await api({ endpoint: "clanMembers" });
+
+        sheet.run(activeWarTag.result, "main", clanList);
 
     } else {
         //We are NOT in CWL - do with that as you will
@@ -78,7 +80,9 @@ module.exports.main = async function main() {
         }
 
         await wars.storeWarInfo(warData); //Store to mongodb first
-        sheet.run(warData, "main");
+        const clanList = await api({ endpoint: "clanMembers" });
+
+        sheet.run(warData, "main", clanList);
 
     }
 
