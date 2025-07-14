@@ -140,7 +140,8 @@ async function warSheet(auth, warData) {
             if(warMembers[i]?.warTrackerPlayerFound)
                 continue;
 
-            let dbNewInstance = dbUserData.find(user => user.tag == warMembers[j].tag);
+            let dbNewInstance = dbUserData.find(user => user.tag == warMembers[i].tag);
+            const newAverages = _findWarAverages(dbNewInstance);
 
             //Tag | Town Hall | Name | Total wars | Missed Attacks | Avg %  | Avg Last 10 %
             let newPlayer = [ 
@@ -150,8 +151,8 @@ async function warSheet(auth, warData) {
                 dbNewInstance.name,
                 1,
                 dbNewInstance.missedAttacks,
-                destroyTotal ? `${(destroyTotal / warMembers[i].attacks.length).toString()}%` : '0%',
-                destroyTotal ? `${(destroyTotal / warMembers[i].attacks.length).toString()}%` : '0%'
+                `${((newAverages.regular / newAverages.attackCount) || 0).toFixed(2)}%`,
+                `${((newAverages.lastTen / newAverages.lastTenCount) || 0).toFixed(2)}%`
             ];
 
             switch(warData.attacksPerMember) {
