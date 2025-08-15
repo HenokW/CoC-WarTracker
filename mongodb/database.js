@@ -1,8 +1,8 @@
 const { mongodb_uri, clanTag } = require("../config.json");
 const { MongoClient } = require("mongodb");
 
-const DATABASE_NAME = { war: "HouseHydra", clanCapital: "ClanCapital" };
-const COLLECTION = { members: "members", warhistory: "war-history" }
+const DATABASE_NAME = { war: "HouseHydra", clanCapital: "ClanCapital", bot: "Warlog" };
+const COLLECTION = { members: "members", warhistory: "war-history", bot: "users" }
 
 const client = new MongoClient(mongodb_uri);
 
@@ -141,21 +141,6 @@ module.exports.storeInfo = async function(warData) {
 
 }
 
-module.exports.defaultClanMember = function() {
-    const playerdb = {
-        tag: null,
-        name: null,
-        attacks: 0,
-        missedAttacks: 0,
-
-        warLog: [],
-        defenceLog: [],
-        search: 1
-    }
-
-    return playerdb;
-}
-
 async function add(db, collection, data) {
     try {
         const database = await createConnection(db);
@@ -223,6 +208,48 @@ async function createConnection(db, failedAmount) {
             throw err;
         }
     }
+}
+
+module.exports.updateWarlogUsers = function(discordUser, storage) {
+    storage.discord.username = discordUser.username;
+    storage.discord.avatar = discordUser.avatar;
+    storage.discord.globalName = discordUser.globalName;
+
+    return storage;
+}
+
+module.exports.defaultClanMember = function() {
+    const playerdb = {
+        tag: null,
+        name: null,
+        attacks: 0,
+        missedAttacks: 0,
+
+        warLog: [],
+        defenceLog: [],
+        search: 1
+    }
+
+    return playerdb;
+}
+
+module.exports.defaultWarlogObject = function() {
+    const user = {
+        discord: {
+            userId: null,
+            username: null,
+            avatar: null,
+            globalName: null
+        },
+        website: {
+            accessToken: null,
+            expires: null,
+            refreshToken: null
+        },
+        accounts: []
+    }
+
+    return user;
 }
 
 module.exports.add = add;

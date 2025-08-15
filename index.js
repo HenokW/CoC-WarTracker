@@ -5,6 +5,8 @@ const colors = require("colors");
 const path = require("path");
 const fs = require("fs");
 
+const TEST_BOT_ONLY = false;
+
 const client = new Client({ 
     intents: [
         GatewayIntentBits.Guilds,
@@ -81,13 +83,9 @@ async function startup() {
 }
 
 
-
-
-
-
-
-let tracker = require("./warTracker.js");
-tracker.main();
-
-
-//client.login(config.token);
+if(TEST_BOT_ONLY)
+    client.login(config.token);
+else {
+    let tracker = require("./warTracker.js");
+    tracker.main();
+}

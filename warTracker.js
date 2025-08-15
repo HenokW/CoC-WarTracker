@@ -210,10 +210,25 @@ async function api(options, failedAmount) {
                     const apiMembersList = await request.get(`${API_URL}/clans/%23${config.clanTag}/members`);
                     return resolve(apiMembersList.data);
 
+                case "player":
+                    const apiPlayer = await request.get(`${API_URL}/players/%23${options.playerTag}`);
+                    return resolve(apiPlayer.data);
+
+                case "verifytoken":
+                    const apiVerifyToken = await request.post(`${API_URL}/players/%23${options.verifyPlayerTag}/verifytoken`, {
+                        'token': options.verifyPlayerToken
+                    });
+                    return resolve(apiVerifyToken.data);
+
+
                 default:
                     throw new Error(`Unknown endpoint attempted while trying to make an API call: ${options.endpoint}`)
             }
         } catch(err) {
+            if(!options?.allowRetry) {
+                return resolve(err);
+            }
+
             if(err?.response?.status != "404") {
                 if(typeof failedAmount != "number")
                     failedAmount = 0;
