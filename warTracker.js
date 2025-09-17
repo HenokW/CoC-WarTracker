@@ -1,15 +1,20 @@
+const logs_unusedAttackLog = require('./eventLogs/unusedAttackLog.js');
 const database = require("./mongodb/database.js");
 const raids = require("./mongodb/raids.js");
 const wars = require("./mongodb/wars.js");
 const config = require("./config.json");
 const storage = require("node-persist");
 const axios = require("axios");
+require('dotenv').config();
+
 
 const STORAGE_VAR = { war: "clanData", clanCapital: "capitalData" };
 const API_URL = "https://api.clashofclans.com/v1"
 
 const sheet = require("./sheets.js");
 const DELAY = 30000;
+
+const disableTracking = true;
 
 /**
  * clanData: {
@@ -18,7 +23,7 @@ const DELAY = 30000;
  * }
  * 
  */
-module.exports.main = async function main() {
+module.exports.main = async function main(client, initalRun) {
     await storage.init(
     {
         stringify: JSON.stringify,
@@ -26,6 +31,19 @@ module.exports.main = async function main() {
         encoding: "utf8",
         ttl: false
     });
+
+    console.log(`Status: ${process.env.isUnusedAttackLogActive}`)
+
+    if(initalRun) {
+        await checkActiveLogs();
+        await checkActiveSystem(client);
+    }
+
+    if(process.env.isUnusedAttackLogActive == 'true')
+        await logs_unusedAttackLog.timeCheck(client);
+
+    if(disableTracking)
+        return setTimeout(() => { this.main(client) }, DELAY);
 
     await capitalRaidCheck();
 
@@ -57,7 +75,6 @@ module.exports.main = async function main() {
 
         //Add missing values so we can send the same cwl & clan war object
         activeWarTag.result.attacksPerMember = 1; 
-        
 
         await wars.storeWarInfo(activeWarTag.result); //Store to mongodb first
         const clanList = await api({ endpoint: "clanMembers" });
@@ -92,7 +109,6 @@ module.exports.main = async function main() {
 }
 
 async function capitalRaidCheck() {
-
     try {
         const capitalHistory = await database.find(database.DATABASE_NAME.clanCapital, database.COLLECTION.warhistory, { clanTag: `#${config.clanTag}` });
         const clanCapitalInfo = await api({ endpoint: "clanCapital" });
@@ -124,6 +140,29 @@ async function capitalRaidCheck() {
 
     } catch(err) {
         console.error(err);
+    }
+}
+
+async function checkActiveSystem(client) {
+    const watchUserPromotion = require("./eventLogs/watchUserPromotion.js");
+
+    watchUserPromotion.initalCheck(client);
+}
+
+async function checkActiveLogs() {
+    const logFile = await database.find(database.DATABASE_NAME.bot, database.COLLECTION.log, { clanTag: `#${config.clanTag}` });
+    if(!logFile) return;
+
+    for(const log of logFile.activeLogs) {
+        switch(log.type) {
+            case 'ua_warning':
+                process.env.isUnusedAttackLogActive = true;
+                break;
+
+            case 'eow_report':
+                process.env.isEndOfWarReportActive = true;
+                break;
+        }
     }
 }
 
@@ -206,7 +245,11 @@ async function api(options, failedAmount) {
                     const apiClanCapital = await request.get(`${API_URL}/clans/%23${config.clanTag}/capitalraidseasons`);
                     return resolve(apiClanCapital.data);
 
-                case "clanMembers":
+                case "clanInfo":
+                    const apiClanInfoData = await request.get(`${API_URL}/clans/%23${config.clanTag}`);
+                    return resolve(apiClanInfoData.data);
+
+                case "clanMembers": //Remove in favor for clanInfo
                     const apiMembersList = await request.get(`${API_URL}/clans/%23${config.clanTag}/members`);
                     return resolve(apiMembersList.data);
 

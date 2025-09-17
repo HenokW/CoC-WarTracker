@@ -191,7 +191,14 @@ async function warSheet(auth, warData, clanList) {
             }
 
             //Add them to the main sheet
-            returnedSheet.unshift(newPlayer);
+            returnedSheet.push(newPlayer);
+        }
+
+        //Go back through the sheet, and remove anyone's role that's not in the clan
+        for(let i = 0; i < returnedSheet.length; i++) {
+            let userSearch = _findClanMemberData(clanList, returnedSheet[i][0]);
+            if(!userSearch)
+                returnedSheet[i][2] = "";
         }
 
         await setWarData(auth, returnedSheet, warData);
@@ -296,12 +303,12 @@ async function capitalSheet(auth, memberdb, clanList) {
 function _findWarAverages(db) {
     let avg = { regular: 0, lastTen: 0, attackCount: 0, lastTenCount: 0 };
 
-    for(let i = 0; i < db.warLog.length; i++) {
+    for(let i = db.warLog.length - 1; i >= 0; i--) {
         for(let j = 0; j < (db.warLog[i]?.attacks?.length || 0); j++) {
             avg.regular += db.warLog[i].attacks[j].destructionPercent;
             avg.attackCount++;
 
-            if(i < 10) {
+            if(avg.attackCount <= 10) {
                 avg.lastTen += db.warLog[i].attacks[j].destructionPercent;
                 avg.lastTenCount++;
             }

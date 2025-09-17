@@ -1,4 +1,5 @@
-
+const { EmbedBuilder } = require('discord.js');
+const warTracker = require("../warTracker.js");
 
 const ranks = [
     {
@@ -40,10 +41,28 @@ const ranks = [
     }, 
 ]
 
-module.exports.colors = { red: "#BF1717", green: "#17BF1A", default: "#806c54" }
+module.exports.colors = { red: "#BF1717", green: "#17BF1A", blue: '#4287f5', default: "#be902e" }
 module.exports.trophyToEmote = function(trophy) {
     for(let i = 0; i < ranks.length; i++) {
         if(trophy >= ranks[i].goal)
             return ranks[i];
     }
+}
+
+module.exports.errorMessage = function(msg) {
+    let embed = new EmbedBuilder()
+        .setColor('#BF1717')
+        .setTitle(`<:error:1403494703407566908> ${msg.title}`)
+        .setDescription(msg.content)
+        .setFooter({text: "NOTE: Multiple Clash accounts can be linked to the same Discord profile."})
+        
+        return embed;
+}
+
+module.exports.isApiAvailable = async function() {
+    const api = await warTracker.api({ endpoint: 'clanInfo' });
+    if(typeof api.tag == 'undefined' || typeof api.tag == 'null')
+        return false;
+
+    return true;
 }
