@@ -13,7 +13,7 @@ const rankStrength = {
 
 let CACHE_RECHECK_COUNT = 0;
 const DELAY = 300_000; //5 minutes //300_000
-const GUILD_ID = '507681014638968832';
+const GUILD_ID = '1342617565259890709'; //TEST GUILD = 507681014638968832
 
 if(typeof process.env.isWatchUserPromotionActive == 'undefined') process.env.isWatchUserPromotionActive = false;
 
