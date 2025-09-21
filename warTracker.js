@@ -12,7 +12,7 @@ const STORAGE_VAR = { war: "clanData", clanCapital: "capitalData" };
 const API_URL = "https://api.clashofclans.com/v1"
 
 const sheet = require("./sheets.js");
-const DELAY = 30000;
+const DELAY = 30000; //Default 30 seconds
 
 const disableTracking = true;
 
@@ -42,8 +42,10 @@ module.exports.main = async function main(client, initalRun) {
     if(process.env.isUnusedAttackLogActive == 'true')
         await logs_unusedAttackLog.timeCheck(client);
 
-    if(disableTracking)
+    if(disableTracking) {
+        console.log("[" + "Notice".bold.red + "] + - War Tracking has been disabled.");
         return setTimeout(() => { this.main(client) }, DELAY);
+    }
 
     await capitalRaidCheck();
 
@@ -55,7 +57,7 @@ module.exports.main = async function main(client, initalRun) {
         let activeWarTag = await findWarTag(cwlWarData.rounds);
         if(activeWarTag.found == false) {
             console.log(`Looks like no CWL matches have ended yet... Ignoring. (CWL) -- ${new Date().toLocaleString()}`);
-            return setTimeout(() => { this.main();  }, DELAY);
+            return setTimeout(() => { this.main(client);  }, DELAY);
         }
 
         if(activeWarTag.found) {
@@ -70,7 +72,7 @@ module.exports.main = async function main(client, initalRun) {
 
         if(await isClanLogged(activeWarTag.result)) {
             console.log(`Looks like we've already added this clan's information already... Ignoring. (CWL) -- ${new Date().toLocaleString()}`);
-            return setTimeout(() => { this.main();  }, DELAY);
+            return setTimeout(() => { this.main(client);  }, DELAY);
         }
 
         //Add missing values so we can send the same cwl & clan war object
@@ -87,13 +89,13 @@ module.exports.main = async function main(client, initalRun) {
         const warData = await api({ endpoint: "clan" });
         if(warData.state != "warEnded") {
             console.log(`It looks like we're still in war, and it's not yet over... (REGULAR) -- ${new Date().toLocaleString()}`);
-            return setTimeout(() => { this.main() }, DELAY);
+            return setTimeout(() => { this.main(client) }, DELAY);
         }
 
         
         if(await isClanLogged(warData, "main")) {
             console.log(`Looks like we've already added this clan's information already... Ignoring. (REGULAR) -- ${new Date().toLocaleString()}`);
-            return setTimeout(() => { this.main() }, DELAY);
+            return setTimeout(() => { this.main(client) }, DELAY);
         }
 
         await wars.storeWarInfo(warData); //Store to mongodb first
@@ -105,7 +107,7 @@ module.exports.main = async function main(client, initalRun) {
 
     console.log("Refreshing");
 
-    return setTimeout(() => { this.main() }, DELAY);
+    return setTimeout(() => { this.main(client) }, DELAY);
 }
 
 async function capitalRaidCheck() {

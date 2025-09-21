@@ -64,12 +64,6 @@ async function channelSelector(interaction, text) {
         const selectorResponse = await selectorCollector.awaitMessageComponent({ filter: filter, time: 30_000 });
         console.log(selectorResponse.values[0]);
 
-        const successEmbed = new EmbedBuilder()
-            .setColor(util.colors.green)
-            .setTitle(`Successfully enabled **${text}** in <#${selectorResponse.values[0]}>`)
-            .setThumbnail('https://henokw.xyz/resources/coc/bot/happy-barb.png')
-            .setFooter({text: "To disable logging, use the /log command again"});
-
         await selectorResponse.update({ components: [] });
 
         const attackLogEvent = require("../eventLogs/unusedAttackLog.js");

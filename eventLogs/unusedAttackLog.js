@@ -25,9 +25,6 @@ const notifyingOptions = [{
     }, {
         text: '12 Hours',
         timeInSeconds: 43200
-    }, {
-        text: '21 Hours',
-        timeInSeconds: 75600
     }
 ]
 
@@ -206,7 +203,7 @@ module.exports.timeCheck = async function(client) {
     dbLog.activeLogs.forEach(async log => {
         if(log.type == LOG_NAME) {
             const currentTime = Math.floor((new Date().getTime()) / 1000);
-            if((log.warEndTime != null || log.warEndTime != undefined) && (currentTime >= log.notifyTimeAt) && (!log.hasNotified)) {
+            if((log.warEndTime != null && log.warEndTime != undefined) && (currentTime >= log.notifyTimeAt) && (!log.hasNotified)) {
                 await sendNotification(client, log);
             } else if(log.hasNotified == true || log.warEndTime == null || log.warEndTime == undefined) {
                 let currentCWL = await warTracker.api({ endpoint: 'cwl' });
@@ -264,7 +261,7 @@ async function sendNotification(client, logObj) {
     else
         war = await warTracker.api({ endpoint: 'clan' });
 
-    if(!war.state) 
+    if(!war?.state) 
         return console.error(">> There was an issue while using the api");
 
     if(war.state == 'warEnded') {
@@ -324,7 +321,7 @@ async function sendNotification(client, logObj) {
                 {name: "Time left in war", value: `${hr}h ${min}m ${sec}s` })
             .setTimestamp();
 
-        const channel = await client.channels.cache.get(logObj.notifyChannelId);
+        const channel = await client.channels.fetch(logObj.notifyChannelId);
         if(!channel) {
             await removeLog();
         } else {

@@ -326,10 +326,8 @@ async function clanCapitalStats(tag) {
     }
 
     const img = await createClanCapitalCanvas(dbUser.districtLog);
-
-    const attLog = dbUser.attackLog;
-    attLog.sort((a,b) => b.goldLooted - a.goldLooted);
-
+    const attLog = structuredClone(dbUser.attackLog).sort((a, b) => b.goldLooted - a.goldLooted);
+    
     const statEmbed = new EmbedBuilder()
         .setColor(util.colors.default)
         .setTitle(`${account.name}'s Clan Capital Stats - ${account.tag}`)
