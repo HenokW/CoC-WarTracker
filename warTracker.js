@@ -115,7 +115,8 @@ async function capitalRaidCheck() {
         const capitalHistory = await database.find(database.DATABASE_NAME.clanCapital, database.COLLECTION.warhistory, { clanTag: `#${config.clanTag}` });
         const clanCapitalInfo = await api({ endpoint: "clanCapital" });
 
-        //const clanCapitalInfo = require("./capital.json");
+        if(typeof clanCapitalInfo?.items[0]?.state == 'undefined')
+            return console.log(`It looks like there was an issue reaching the clanCapital endpoint... Ignoring. (Clan Capital) -- ${new Date().toLocaleString()}`)
 
         if(clanCapitalInfo.items[0].state != "ended")
             return console.log(`It looks like we're still participating in capital raids... Ignoring. (Clan Capital) -- ${new Date().toLocaleString()}`);

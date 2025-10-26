@@ -37,6 +37,9 @@ async function findTags() {
         return null;
 
     let obj = [];
+    if((cwl?.rounds?.length || 0) <= 0)
+        return false;
+    
     for(let i = cwl.rounds.length - 1; i >= 0; i--) {
         if(cwl.rounds[i].warTags[0] == '#0') 
             continue;
