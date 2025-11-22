@@ -1,7 +1,7 @@
 const { mongodb_uri, clanTag } = require("../config.json");
 const { MongoClient } = require("mongodb");
 
-const DATABASE_NAME = { war: "HouseHydra", clanCapital: "ClanCapital", bot: "Warlog" };
+const DATABASE_NAME = { war: "HouseHydra", clanCapital: "ClanCapital", clanGames: "ClanGames", bot: "Warlog" };
 const COLLECTION = { members: "members", warhistory: "war-history", bot: "users", log: "log-file", roles: 'role-tracker' }
 
 const client = new MongoClient(mongodb_uri);

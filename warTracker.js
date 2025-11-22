@@ -14,7 +14,7 @@ const API_URL = "https://api.clashofclans.com/v1"
 const sheet = require("./sheets.js");
 const DELAY = 30000; //Default 30 seconds
 
-const disableTracking = true;
+const disableTracking = false;
 
 /**
  * clanData: {
@@ -39,13 +39,13 @@ module.exports.main = async function main(client, initalRun) {
         await checkActiveSystem(client);
     }
 
-    if(process.env.isUnusedAttackLogActive == 'true')
-        await logs_unusedAttackLog.timeCheck(client);
-
     if(disableTracking) {
         console.log("[" + "Notice".bold.red + "] + - War Tracking has been disabled.");
         return setTimeout(() => { this.main(client) }, DELAY);
     }
+
+    if(process.env.isUnusedAttackLogActive == 'true')
+        await logs_unusedAttackLog.timeCheck(client);
 
     await capitalRaidCheck();
 
@@ -148,7 +148,9 @@ async function capitalRaidCheck() {
 
 async function checkActiveSystem(client) {
     const watchUserPromotion = require("./eventLogs/watchUserPromotion.js");
+    const clanGamesTracker = require("./clanGamesTracker.js");
 
+    clanGamesTracker.initalCheck();
     watchUserPromotion.initalCheck(client);
 }
 

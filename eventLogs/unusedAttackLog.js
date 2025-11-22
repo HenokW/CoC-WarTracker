@@ -379,4 +379,7 @@ async function findWarTag(rounds) {
             }
         }
     }
+
+    //Will return null if there's a gap between a cwl round ending, and the next one starting
+    return null;
 }

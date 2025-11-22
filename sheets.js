@@ -34,6 +34,11 @@ module.exports.run = async function(data, sheet, clanList) {
             case "capital":
                 authorize(JSON.parse(content), capitalSheet, data, clanList); //Data in this case means mongo member data
                 break;
+
+            case "games":
+                authorize(JSON.parse(content), gamesSheet, data, clanList); //Data in this case means mongo member data
+                                                                            //clanList in this case refers to the current 'Season'
+                break;
         }
     });
 }
@@ -58,10 +63,8 @@ function authorize(credentials, callback, warData, mongoHistory, clanList) {
 
 //=================================================
 
-/*
 
 
-*/
 async function warSheet(auth, warData, clanList) {
     const sheets = google.sheets({version: 'v4', auth});
 
@@ -206,6 +209,7 @@ async function warSheet(auth, warData, clanList) {
     });
 } 
 
+
 async function capitalSheet(auth, memberdb, clanList) {
     const sheets = google.sheets({version: 'v4', auth});
     const capitalLastAverage = 5;
@@ -225,10 +229,9 @@ async function capitalSheet(auth, memberdb, clanList) {
                 if(memberdb[i].tag == returnedSheet[j][0]) {
                     hasSheetEntry = true;
 
-                    //If they haven't been added
+                    //If they haven't participated 
                     if(memberdb[i].attackLog[0].raidEndDate != clanHistory.raidHistory[0].raidEndDate) {
                         returnedSheet[j].splice(10, 0, `[x]`);
-
                         continue;
                     }
 
@@ -296,6 +299,66 @@ async function capitalSheet(auth, memberdb, clanList) {
 
         await setCapitalData(auth, returnedSheet)
         await setCapitalHistory(auth);
+
+    });
+}
+
+async function gamesSheet(auth, memberdb, season) {
+    const sheets = google.sheets({version: 'v4', auth});
+
+    await sheets.spreadsheets.values.get({
+        spreadsheetId: config.mainSheetID,
+        range: 'Clan Games!A3:ZZ',
+        valueRenderOption: 'FORMULA'
+    }, async (err, res) => {
+        let returnedSheet = res.data.values || [];
+        
+        for(let i = 0; i < memberdb.length; i++) {
+
+            let hasSheetEntry = false;
+            for(let j = 0; j < returnedSheet.length; j++) {
+                if(memberdb[i].tag == returnedSheet[j][0]) {
+                    hasSheetEntry = true;
+
+                    //Checks if they haven't been tracked
+                    if(memberdb[i].gamesLog[0].season != season) {
+                        returnedSheet[j].splice(10, 0, '[x]')
+                        continue;
+                    }
+
+                    returnedSheet[j][1] = TOWNHALL_PATH.replace("<NUM>", memberdb[i].gamesLog[0].townhallLevel);
+                    returnedSheet[j][2] = memberdb[i].gamesLog[0].role;
+                    returnedSheet[j][3] = memberdb[i].name;
+                    returnedSheet[j][4] = memberdb[i].totalGamesParticipated;
+                    returnedSheet[j][5] = memberdb[i].missedGames;
+                    returnedSheet[j][6] = memberdb[i].gamesCompleted;
+                    returnedSheet[j][7] = memberdb[i].totalPointsEarned.toLocaleString();
+                    returnedSheet[j][8] = (parseInt(memberdb[i].totalPointsEarned) / parseInt(memberdb[i].totalGamesParticipated)).toLocaleString();
+                    returnedSheet[j][9] = ( ( (parseInt(memberdb[i].gamesCompleted) / parseInt(memberdb[i].totalGamesParticipated)) * 100 ).toFixed(2) ).toLocaleString();
+                    returnedSheet[j].splice(10, 0, `${memberdb[i].gamesLog[0].score.toLocaleString()} / ${memberdb[i].gamesLog[0].maxScore.toLocaleString()}`);
+                }
+            }
+            
+            if(!hasSheetEntry) {
+                let obj = [];
+                obj[0] = memberdb[i].tag;
+                obj[1] = TOWNHALL_PATH.replace("<NUM>", memberdb[i].gamesLog[0].townhallLevel);
+                obj[2] = memberdb[i].gamesLog[0].role;
+                obj[3] = memberdb[i].name;
+                obj[4] = memberdb[i].totalGamesParticipated;
+                obj[5] = memberdb[i].missedGames;
+                obj[6] = memberdb[i].gamesCompleted;
+                obj[7] = memberdb[i].totalPointsEarned.toLocaleString();
+                obj[8] = (parseInt(memberdb[i].totalPointsEarned) / parseInt(memberdb[i].totalGamesParticipated)).toLocaleString();
+                obj[9] = ( ( (parseInt(memberdb[i].gamesCompleted) / parseInt(memberdb[i].totalGamesParticipated)) * 100 ).toFixed(2) ).toLocaleString();
+                obj[10] = `${memberdb[i].gamesLog[0].score.toLocaleString()} / ${memberdb[i].gamesLog[0].maxScore.toLocaleString()}`;
+
+                returnedSheet.push(obj);
+            }
+
+        }
+
+        await setGamesData(auth, returnedSheet, season);
 
     });
 }
@@ -466,6 +529,67 @@ function _formatDateString(time, returnYear) {
         return `${month}/${day}/${year}`;
 
     return `${month}/${day}`;
+}
+
+async function setGamesData(auth, newData, season)
+{
+    const sheets = google.sheets({version: 'v4', auth});
+
+    //Should clear first because there are times were rows are reordered causing some cells to get merged with others while they have uneven lengths
+    await sheets.spreadsheets.values.clear({
+        spreadsheetId: config.mainSheetID,
+        range: 'Clan Games!A3:ZZ' 
+    }); 
+
+    const sortedSheet = _sortByRoles(newData);
+    sheets.spreadsheets.values.update(
+    {
+        spreadsheetId: config.mainSheetID,
+        range: 'Clan Games!A3:ZZ',
+        valueInputOption:"USER_ENTERED",
+        resource:{
+            values: sortedSheet
+          }
+    }, (err, res) =>
+    {
+        if(err)
+            console.log(err);
+        else {
+            console.log("(CLAN GAMES) - Sheets has been updated");
+            setGamesTime(auth, season);
+        }
+    });
+}
+
+async function setGamesTime(auth, season) {
+    const sheets = google.sheets({version: 'v4', auth});
+    await sheets.spreadsheets.values.get(
+    {
+        spreadsheetId: config.mainSheetID,
+        range: 'Clan Games!K2:ZZ2',
+    }, async (err, res) =>
+    {
+        if (err) return console.log('The API returned an error: ' + err);
+        let data = res.data.values || [[]];
+
+        data[0].unshift(season);
+        sheets.spreadsheets.values.update(
+        {
+            spreadsheetId: config.mainSheetID,
+            range: 'Clan Games!K2:ZZ2',
+            valueInputOption:"USER_ENTERED",
+            resource:{
+                values: data
+            }
+        }, (err, res) =>
+        {
+            if(err)
+                console.log(err);
+            else {
+                console.log("Time has successfully been added for Clan Games Sheet data.");
+            }
+        });
+    });
 }
 
 async function setCapitalData(auth, newData)
