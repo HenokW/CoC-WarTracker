@@ -264,7 +264,7 @@ async function sendNotification(client, logObj) {
     if(!war?.state) 
         return console.error(">> There was an issue while using the api");
 
-    if(war.state == 'warEnded') {
+    if(war.state == 'warEnded' || war.endTime != logObj.warEndTime) {
         console.log("War has ended, set notified value to TRUE");
         await updateNotified();
     }
