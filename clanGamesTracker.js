@@ -126,13 +126,13 @@ async function updateDB(trackedList, currentSeason) {
         else if(trackedList[i].score <= 0)
             userGamesDb.missedGames++;
 
-        userGamesDb.totalPointsEarned += parseInt(trackedList[i].score);
+        userGamesDb.totalPointsEarned += parseInt(trackedList[i].score >= DEFAULT_MAX_SCORE ? DEFAULT_MAX_SCORE : trackedList[i].score);
         userGamesDb.gamesLog.unshift({
             season: currentSeason,
-            score: trackedList[i].score,
+            score: trackedList[i].score >= DEFAULT_MAX_SCORE ? DEFAULT_MAX_SCORE : trackedList[i].score, //There's a chance points can overflow (points are only 'capped' within the clan ui, not achievements)
             maxScore: DEFAULT_MAX_SCORE,
             townhallLevel: profile.townHallLevel,
-            role: profile?.clan?.tag == config.clanTag ? profile.role : ""
+            role: profile?.clan?.tag == `#${config.clanTag}` ? profile.role : ""
         });
 
         if(newEntry)
