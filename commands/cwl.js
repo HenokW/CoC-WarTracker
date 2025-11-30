@@ -158,9 +158,9 @@ async function createImage(war) {
         ctx.strokeText(war[i].clan, 320, 670 + (90 * i));
         ctx.fillText(war[i].clan, 320, 670 + (90 * i));
 
-        const TH1617 = (war[i].thData.get(17) || 0) + (war[i].thData.get(16) || 0);
-        const TH1514 = (war[i].thData.get(15) || 0) + (war[i].thData.get(14) || 0);
-        const TH1312 = (war[i].thData.get(13) || 0) + (war[i].thData.get(12) || 0);
+        const upperTh = (war[i].thData.get(18) || 0) + (war[i].thData.get(17) || 0);
+        const midTh = (war[i].thData.get(16) || 0) + (war[i].thData.get(15) || 0);
+        const lowerTh = (war[i].thData.get(14) || 0) + (war[i].thData.get(13) || 0);
 
         // --GROUPED TH COUNTS-- //
         ctx.fillStyle = '#e63a4d';
@@ -170,20 +170,20 @@ async function createImage(war) {
         ctx.lineWidth = 2;
         ctx.shadowOffsetY = 4;
 
-        ctx.strokeText(TH1617, 755, 687 + (90 * i));
-        ctx.fillText(TH1617, 755, 687 + (90 * i));
+        ctx.strokeText(upperTh, 755, 687 + (90 * i));
+        ctx.fillText(upperTh, 755, 687 + (90 * i));
 
         ctx.fillStyle = '#e6a33a';
-        ctx.strokeText(TH1514, 961, 687 + (90 * i));
-        ctx.fillText(TH1514, 961, 687 + (90 * i));
+        ctx.strokeText(midTh, 961, 687 + (90 * i));
+        ctx.fillText(midTh, 961, 687 + (90 * i));
 
         ctx.fillStyle = '#a3e63a';
-        ctx.strokeText(TH1312, 1167, 687 + (90 * i));
-        ctx.fillText(TH1312, 1167, 687 + (90 * i));
+        ctx.strokeText(lowerTh, 1167, 687 + (90 * i));
+        ctx.fillText(lowerTh, 1167, 687 + (90 * i));
 
         ctx.fillStyle = '#ffffff';
-        ctx.strokeText(cwlSize - (TH1617 + TH1514 + TH1312), 1355, 687 + (90 * i));
-        ctx.fillText(cwlSize - (TH1617 + TH1514 + TH1312), 1355, 687 + (90 * i));
+        ctx.strokeText(cwlSize - (upperTh + midTh + lowerTh), 1355, 687 + (90 * i));
+        ctx.fillText(cwlSize - (upperTh + midTh + lowerTh), 1355, 687 + (90 * i));
 
         // --TH SEPERATION-- //
         ctx.fillStyle = '#e63a4d';
@@ -191,16 +191,16 @@ async function createImage(war) {
         
         ctx.lineWidth = 1.5;
         ctx.shadowOffsetY = 3;
-        ctx.strokeText(`(${war[i].thData.get(17) || 0} - ${war[i].thData.get(16) || 0})`, 755, 642 + (90 * i));
-        ctx.fillText(`(${war[i].thData.get(17) || 0} - ${war[i].thData.get(16) || 0})`, 755, 642 + (90 * i));
+        ctx.strokeText(`(${war[i].thData.get(18) || 0} - ${war[i].thData.get(17) || 0})`, 755, 642 + (90 * i));
+        ctx.fillText(`(${war[i].thData.get(18) || 0} - ${war[i].thData.get(17) || 0})`, 755, 642 + (90 * i));
 
         ctx.fillStyle = '#e6a33a';
-        ctx.strokeText(`(${war[i].thData.get(15) || 0} - ${war[i].thData.get(14) || 0})`, 961, 642 + (90 * i));
-        ctx.fillText(`(${war[i].thData.get(15) || 0} - ${war[i].thData.get(14) || 0})`, 961, 642 + (90 * i));
+        ctx.strokeText(`(${war[i].thData.get(16) || 0} - ${war[i].thData.get(15) || 0})`, 961, 642 + (90 * i));
+        ctx.fillText(`(${war[i].thData.get(16) || 0} - ${war[i].thData.get(15) || 0})`, 961, 642 + (90 * i));
 
         ctx.fillStyle = '#a3e63a';
-        ctx.strokeText(`(${war[i].thData.get(13) || 0} - ${war[i].thData.get(12) || 0})`, 1167, 642 + (90 * i));
-        ctx.fillText(`(${war[i].thData.get(13) || 0} - ${war[i].thData.get(12) || 0})`, 1167, 642 + (90 * i));
+        ctx.strokeText(`(${war[i].thData.get(14) || 0} - ${war[i].thData.get(13) || 0})`, 1167, 642 + (90 * i));
+        ctx.fillText(`(${war[i].thData.get(14) || 0} - ${war[i].thData.get(13) || 0})`, 1167, 642 + (90 * i));
 
         if(war[i].isEnemy) {
             ctx.fillStyle = '#ffffff';
